@@ -5,8 +5,9 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { CheckCircle, FileText, Shield, GitBranch, ArrowLeft, Download, Clock, GitMerge } from "lucide-react";
+import { CheckCircle, FileText, Shield, GitBranch, ArrowLeft, Download, Clock, GitMerge, Folder } from "lucide-react";
 import Link from "next/link";
+import { FileNode } from "@/lib/scanner";
 
 interface PageProps {
   params: Promise<{ slug: string[] }>;
@@ -22,12 +23,17 @@ export default async function ReportPage(props: PageProps) {
   let recs: Recommendation[] = [];
   let evidence: RepoEvidence | null = null;
 
+  console.log(`[ReportPage] Rendering report for ${fullName}`);
+
   try {
-    evidence = await scanRepo(owner, repoName);
+    const start = Date.now();
+    evidence = await scanRepo(owner, repoName, process.env.GITHUB_TOKEN);
+    console.log(`[ReportPage] Scan took ${Date.now() - start}ms`);
+
     report = scoreRepo(evidence);
     recs = generateRecommendations(evidence);
   } catch (e: unknown) {
-    console.error(e);
+    console.error("[ReportPage] Error generating report:", e);
     error = (e instanceof Error ? e.message : String(e)) || "Failed to scan repository. Is it public?";
   }
 
@@ -153,6 +159,27 @@ export default async function ReportPage(props: PageProps) {
               </CardContent>
            </Card>
         </div>
+
+        {/* File Tree */}
+        <Card className="bg-zinc-900 border-zinc-800 text-zinc-50">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Folder className="h-4 w-4" /> Repository Map ({evidence.tree.length} files)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="max-h-64 overflow-y-auto rounded-md border border-zinc-800 bg-zinc-950 p-4 font-mono text-xs text-zinc-400">
+               {evidence.tree.slice(0, 100).map((node, i) => (
+                  <div key={i} className="truncate">
+                    {node.path}
+                  </div>
+               ))}
+               {evidence.tree.length > 100 && (
+                 <div className="pt-2 text-zinc-600 italic">... and {evidence.tree.length - 100} more</div>
+               )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Recommendations */}
         <div className="space-y-6">
