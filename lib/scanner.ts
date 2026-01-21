@@ -41,6 +41,12 @@ export async function scanRepo(
   token?: string
 ): Promise<RepoEvidence> {
   console.log(`[Scanner] Starting scan for ${owner}/${repo}`);
+  if (token) {
+    console.log("[Scanner] Using provided GITHUB_TOKEN");
+  } else {
+    console.log("[Scanner] No GITHUB_TOKEN provided, running unauthenticated (rate limits apply)");
+  }
+
   const octokit = createOctokit(token);
 
   // 1. Get the repository metadata
