@@ -8,9 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { ADR_TEMPLATE, ADR_README, CI_WORKFLOW, CODEOWNERS, README_TEMPLATE } from "@/lib/templates";
+import { ADR_TEMPLATE, ADR_README, CI_WORKFLOW, CODEOWNERS, README_TEMPLATE, AGENTS_MD_TEMPLATE, BASE_PACKAGE_JSON, TSCONFIG_TEMPLATE, ESLINT_CONFIG_TEMPLATE, VITEST_CONFIG_TEMPLATE, DOCKERFILE_TEMPLATE, DOCKER_COMPOSE_TEMPLATE } from "@/lib/templates";
 import Link from "next/link";
-import { ArrowLeft, Download, Shield, FileText, CheckCircle } from "lucide-react";
+import { ArrowLeft, Download, Shield, FileText, CheckCircle, Box, Bot, Server } from "lucide-react";
 
 export default function GeneratePage() {
   const [projectName, setProjectName] = useState("");
@@ -18,6 +18,9 @@ export default function GeneratePage() {
   const [includeADR, setIncludeADR] = useState(true);
   const [includeCI, setIncludeCI] = useState(true);
   const [includeGovernance, setIncludeGovernance] = useState(true);
+  const [includeScaffold, setIncludeScaffold] = useState(false);
+  const [includeAIContext, setIncludeAIContext] = useState(false);
+  const [includeDocker, setIncludeDocker] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handleGenerate = async () => {
@@ -60,6 +63,48 @@ export default function GeneratePage() {
       if (includeGovernance) {
         zip.file("CODEOWNERS", CODEOWNERS);
         zip.file(".github/pull_request_template.md", "## Description\n\n## Changes\n\n## Checklist");
+      }
+
+      // AI Context
+      if (includeAIContext) {
+        const agentsMd = AGENTS_MD_TEMPLATE
+            .replace("{DESCRIPTION}", description || "A new project.")
+            .replace("{PROJECT_NAME}", projectName)
+            .replace("{TESTING_FRAMEWORK}", "Vitest");
+        zip.file("AGENTS.md", agentsMd);
+      }
+
+      // Docker
+      if (includeDocker) {
+        zip.file("Dockerfile", DOCKERFILE_TEMPLATE);
+        zip.file("docker-compose.yml", DOCKER_COMPOSE_TEMPLATE);
+      }
+
+      // Project Scaffold
+      if (includeScaffold) {
+        // Create directory structure
+        zip.folder("src");
+        zip.folder("src/features");
+        zip.folder("src/lib");
+        zip.folder("src/components");
+
+        // package.json
+        const pkg = JSON.parse(JSON.stringify(BASE_PACKAGE_JSON));
+        pkg.name = projectName.toLowerCase().replace(/\s+/g, '-');
+
+        // Add Docker scripts if docker is included
+        if (includeDocker) {
+            pkg.scripts["docker:up"] = "docker-compose up";
+            pkg.scripts["docker:build"] = "docker-compose build";
+        }
+
+        zip.file("package.json", JSON.stringify(pkg, null, 2));
+        zip.file("tsconfig.json", TSCONFIG_TEMPLATE);
+        zip.file("eslint.config.mjs", ESLINT_CONFIG_TEMPLATE);
+        zip.file("vitest.config.ts", VITEST_CONFIG_TEMPLATE);
+
+        // Simple index file
+        zip.file("src/index.ts", "console.log('Hello World');");
       }
 
       // Generate Blob
@@ -180,6 +225,63 @@ export default function GeneratePage() {
                         <p className="text-sm text-zinc-400">
                             Includes <code>CODEOWNERS</code> and PR templates.
                         </p>
+                    </div>
+                </div>
+
+                <div className="border-t border-zinc-800 pt-4 mt-4">
+                    <h3 className="font-semibold mb-4 text-zinc-300">Advanced Setup</h3>
+                    <div className="space-y-6">
+
+                        <div className="flex items-start space-x-3">
+                            <Checkbox
+                                id="scaffold"
+                                checked={includeScaffold}
+                                onCheckedChange={(c) => setIncludeScaffold(c === true)}
+                                className="border-zinc-600 data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600"
+                            />
+                            <div className="grid gap-1.5 leading-none">
+                                <Label htmlFor="scaffold" className="font-bold flex items-center gap-2">
+                                    <Box className="h-4 w-4 text-orange-400"/> Project Scaffold
+                                </Label>
+                                <p className="text-sm text-zinc-400">
+                                    Generates <code>package.json</code>, <code>tsconfig.json</code>, <code>src/</code>, and configures ESLint & Vitest.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-start space-x-3">
+                            <Checkbox
+                                id="agents"
+                                checked={includeAIContext}
+                                onCheckedChange={(c) => setIncludeAIContext(c === true)}
+                                className="border-zinc-600 data-[state=checked]:bg-teal-600 data-[state=checked]:border-teal-600"
+                            />
+                            <div className="grid gap-1.5 leading-none">
+                                <Label htmlFor="agents" className="font-bold flex items-center gap-2">
+                                    <Bot className="h-4 w-4 text-teal-400"/> AI Context
+                                </Label>
+                                <p className="text-sm text-zinc-400">
+                                    Adds an <code>AGENTS.md</code> file to guide AI agents on project structure and rules.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-start space-x-3">
+                            <Checkbox
+                                id="docker"
+                                checked={includeDocker}
+                                onCheckedChange={(c) => setIncludeDocker(c === true)}
+                                className="border-zinc-600 data-[state=checked]:bg-cyan-600 data-[state=checked]:border-cyan-600"
+                            />
+                            <div className="grid gap-1.5 leading-none">
+                                <Label htmlFor="docker" className="font-bold flex items-center gap-2">
+                                    <Server className="h-4 w-4 text-cyan-400"/> Infrastructure (Docker)
+                                </Label>
+                                <p className="text-sm text-zinc-400">
+                                    Includes <code>Dockerfile</code> and <code>docker-compose.yml</code>.
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
