@@ -199,7 +199,7 @@ export async function scanRepo(
 
   // 7. Dependency Audit
   console.log(`[Scanner] Auditing dependencies...`);
-  let dependencyAudit: DependencyReport = { audits: [], outdatedCount: 0, majorCount: 0, minorCount: 0, patchCount: 0 };
+  let dependencyAudit: DependencyReport = { audits: [], outdatedCount: 0, majorCount: 0, minorCount: 0, patchCount: 0, totalDeps: 0 };
   const packageJsonPath = files.find((f) => f.path === "package.json")?.path;
 
   if (packageJsonPath) {
