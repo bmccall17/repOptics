@@ -20,6 +20,13 @@ describe("heuristics", () => {
       avgLeadTimeHours: 0,
       mergedCount: 0,
     },
+    dependencies: {
+        audits: [],
+        outdatedCount: 0,
+        majorCount: 0,
+        minorCount: 0,
+        patchCount: 0
+    }
   };
 
   it("should give a failing grade for an empty repo", () => {
@@ -49,6 +56,13 @@ describe("heuristics", () => {
         mergedCount: 10,
         avgLeadTimeHours: 12, // < 24h
       },
+      dependencies: {
+          audits: [],
+          outdatedCount: 0,
+          majorCount: 0,
+          minorCount: 0,
+          patchCount: 0
+      }
     };
 
     const report = scoreRepo(perfectEvidence);

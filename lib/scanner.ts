@@ -1,4 +1,5 @@
 import { createOctokit } from "./github";
+import { auditDependencies, DependencyReport } from "./dependencies";
 
 export type FileNode = {
   path: string;
@@ -33,6 +34,7 @@ export type RepoEvidence = {
   adrs: AdrFile[];
   diagramCount: number;
   prMetrics: PrMetrics;
+  dependencies: DependencyReport;
 };
 
 export async function scanRepo(
@@ -195,6 +197,28 @@ export async function scanRepo(
      console.error("[Scanner] Failed to fetch PRs", e);
   }
 
+  // 7. Dependency Audit
+  console.log(`[Scanner] Auditing dependencies...`);
+  let dependencyAudit: DependencyReport = { audits: [], outdatedCount: 0, majorCount: 0, minorCount: 0, patchCount: 0 };
+  const packageJsonPath = files.find((f) => f.path === "package.json")?.path;
+
+  if (packageJsonPath) {
+    try {
+      const { data: packageData } = await octokit.rest.repos.getContent({
+        owner,
+        repo,
+        path: packageJsonPath,
+      });
+
+      if ("content" in packageData) {
+        const content = Buffer.from(packageData.content, "base64").toString("utf-8");
+        dependencyAudit = await auditDependencies(content);
+      }
+    } catch (e) {
+      console.error("[Scanner] Failed to audit dependencies", e);
+    }
+  }
+
   console.log(`[Scanner] Scan complete.`);
 
   return {
@@ -214,6 +238,7 @@ export async function scanRepo(
     prMetrics: {
         avgLeadTimeHours,
         mergedCount
-    }
+    },
+    dependencies: dependencyAudit
   };
 }
