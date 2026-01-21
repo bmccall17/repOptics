@@ -23,7 +23,7 @@ export default async function ReportPage(props: PageProps) {
   let evidence: RepoEvidence | null = null;
 
   try {
-    evidence = await scanRepo(owner, repoName);
+    evidence = await scanRepo(owner, repoName, process.env.GITHUB_TOKEN);
     report = scoreRepo(evidence);
     recs = generateRecommendations(evidence);
   } catch (e: unknown) {
