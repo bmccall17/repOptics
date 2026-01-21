@@ -14,7 +14,18 @@ interface PageProps {
 }
 
 export default async function ReportPage(props: PageProps) {
-  const params = await props.params;
+  console.log("[ReportPage] Component started");
+
+  let params: { slug: string[] };
+  try {
+    console.log("[ReportPage] Awaiting params...");
+    params = await props.params;
+    console.log("[ReportPage] Params resolved:", params);
+  } catch (e) {
+    console.error("[ReportPage] Failed to resolve params:", e);
+    return <div>Error loading parameters</div>;
+  }
+
   const [owner, repoName] = params.slug;
   const fullName = `${owner}/${repoName}`;
 
@@ -27,6 +38,7 @@ export default async function ReportPage(props: PageProps) {
 
   try {
     const start = Date.now();
+    console.log(`[ReportPage] Calling scanRepo for ${owner}/${repoName}`);
     evidence = await scanRepo(owner, repoName, process.env.GITHUB_TOKEN);
     console.log(`[ReportPage] Scan took ${Date.now() - start}ms`);
 
