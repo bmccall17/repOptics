@@ -14,6 +14,7 @@ export type Report = {
     architecture: CategoryScore;
     governance: CategoryScore;
     delivery: CategoryScore;
+    dependencies: CategoryScore;
   };
   summary: string;
 };
@@ -23,9 +24,10 @@ export function scoreRepo(evidence: RepoEvidence): Report {
   const architecture = scoreArchitecture(evidence);
   const governance = scoreGovernance(evidence);
   const delivery = scoreDelivery(evidence);
+  const dependencies = scoreDependencies(evidence);
 
   const totalScore = Math.round(
-    (decisions.score + architecture.score + governance.score + delivery.score) / 4
+    (decisions.score + architecture.score + governance.score + delivery.score + dependencies.score) / 5
   );
 
   let grade = "F";
@@ -41,9 +43,24 @@ export function scoreRepo(evidence: RepoEvidence): Report {
       architecture,
       governance,
       delivery,
+      dependencies,
     },
     summary: generateSummary(grade),
   };
+}
+
+function scoreDependencies(evidence: RepoEvidence): CategoryScore {
+  let score = 100;
+  const { outdatedCount, majorCount, minorCount } = evidence.dependencies;
+
+  if (majorCount > 0) score -= majorCount * 15;
+  if (minorCount > 0) score -= minorCount * 5;
+
+  if (score < 0) score = 0;
+
+  if (score >= 90) return { score: score, status: "green", message: "Fresh as a daisy." };
+  if (score >= 60) return { score: score, status: "yellow", message: `${outdatedCount} updates available.` };
+  return { score: score, status: "red", message: `Dep rot detected. ${majorCount} major updates.` };
 }
 
 function scoreDecisions(evidence: RepoEvidence): CategoryScore {
