@@ -40,23 +40,28 @@ export async function scanRepo(
   repo: string,
   token?: string
 ): Promise<RepoEvidence> {
+  console.log(`[Scanner] Starting scan for ${owner}/${repo}`);
   const octokit = createOctokit(token);
 
   // 1. Get the repository metadata
+  console.log(`[Scanner] Fetching metadata for ${owner}/${repo}`);
   const { data: repoData } = await octokit.rest.repos.get({
     owner,
     repo,
   });
 
   const defaultBranch = repoData.default_branch;
+  console.log(`[Scanner] Default branch: ${defaultBranch}`);
 
   // 2. Get the full file tree (recursive)
+  console.log(`[Scanner] Fetching file tree...`);
   const { data: treeData } = await octokit.rest.git.getTree({
     owner,
     repo,
     tree_sha: defaultBranch,
     recursive: "true",
   });
+  console.log(`[Scanner] File tree fetched. Items: ${treeData.tree.length}`);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const files: FileNode[] = treeData.tree.map((node: any) => ({
@@ -71,6 +76,7 @@ export async function scanRepo(
 
   if (readmePath) {
     try {
+      console.log(`[Scanner] Fetching README content from ${readmePath}`);
       const { data: readmeData } = await octokit.rest.repos.getContent({
         owner,
         repo,
@@ -81,7 +87,7 @@ export async function scanRepo(
         readmeContent = Buffer.from(readmeData.content, "base64").toString("utf-8");
       }
     } catch (e) {
-      console.error("Failed to fetch README content", e);
+      console.error("[Scanner] Failed to fetch README content", e);
     }
   }
 
@@ -118,6 +124,10 @@ export async function scanRepo(
   // For MVP, we'll try to fetch content of the first few to check for "Status"
   const adrsToScan = adrFiles.slice(0, 5); 
   
+  if (adrsToScan.length > 0) {
+    console.log(`[Scanner] Parsing ${adrsToScan.length} ADRs...`);
+  }
+
   // Parallel fetch for speed
   await Promise.all(adrsToScan.map(async (file) => {
     try {
@@ -142,11 +152,12 @@ export async function scanRepo(
         });
       }
     } catch (e) {
-      console.error(`Failed to parse ADR ${file.path}`, e);
+      console.error(`[Scanner] Failed to parse ADR ${file.path}`, e);
     }
   }));
 
   // 6. Deep Scan: PR Metrics
+  console.log(`[Scanner] Fetching PR metrics...`);
   let avgLeadTimeHours = 0;
   let mergedCount = 0;
   try {
@@ -161,6 +172,7 @@ export async function scanRepo(
 
     const mergedPulls = pulls.filter(p => p.merged_at);
     mergedCount = mergedPulls.length;
+    console.log(`[Scanner] Found ${mergedCount} merged PRs in last 20.`);
 
     if (mergedCount > 0) {
       const totalDurationMs = mergedPulls.reduce((acc, p) => {
@@ -174,8 +186,10 @@ export async function scanRepo(
     }
 
   } catch (e) {
-     console.error("Failed to fetch PRs", e);
+     console.error("[Scanner] Failed to fetch PRs", e);
   }
+
+  console.log(`[Scanner] Scan complete.`);
 
   return {
     owner,

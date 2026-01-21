@@ -61,30 +61,19 @@ describe("heuristics", () => {
   });
 
   it("should score decisions correctly", () => {
+    // Case 1: Minimal ADRs
     const evidence = { ...emptyEvidence, adrCount: 1 };
     const report = scoreRepo(evidence);
-    expect(report.categories.decisions.score).toBe(60); // 50 for count > 0, + 0 for > 2, + 0 for dates -> but code says: if score >= 50 return 60
-    // Logic check:
-    // score += 50 (adrCount > 0)
-    // score < 100
-    // if score >= 50 return { score: 60, ... }
+    expect(report.categories.decisions.score).toBe(60);
 
-    // Test for higher score
+    // Case 2: Many ADRs but no dates (Score 80 -> Normalized to 60)
     const evidence2 = { ...emptyEvidence, adrCount: 3 };
     const report2 = scoreRepo(evidence2);
-    // score = 50 + 30 = 80.
-    // if score >= 50 return 60. Wait.
-    // The logic in heuristics.ts is:
-    // if (score >= 100) return 100
-    // if (score >= 50) return 60
-    // So 80 results in 60.
-    // To get 100, we need dates.
-
     expect(report2.categories.decisions.score).toBe(60);
 
+    // Case 3: Many ADRs with dates (Score 100 -> Normalized to 100)
     const evidence3 = { ...emptyEvidence, adrCount: 3, adrs: [{ date: "2024-01-01" } as AdrFile] };
     const report3 = scoreRepo(evidence3);
-    // score = 50 + 30 + 20 = 100.
     expect(report3.categories.decisions.score).toBe(100);
   });
 });

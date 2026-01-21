@@ -23,12 +23,17 @@ export default async function ReportPage(props: PageProps) {
   let recs: Recommendation[] = [];
   let evidence: RepoEvidence | null = null;
 
+  console.log(`[ReportPage] Rendering report for ${fullName}`);
+
   try {
+    const start = Date.now();
     evidence = await scanRepo(owner, repoName, process.env.GITHUB_TOKEN);
+    console.log(`[ReportPage] Scan took ${Date.now() - start}ms`);
+
     report = scoreRepo(evidence);
     recs = generateRecommendations(evidence);
   } catch (e: unknown) {
-    console.error(e);
+    console.error("[ReportPage] Error generating report:", e);
     error = (e instanceof Error ? e.message : String(e)) || "Failed to scan repository. Is it public?";
   }
 
