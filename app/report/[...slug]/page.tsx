@@ -5,9 +5,9 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { CheckCircle, FileText, Shield, GitBranch, ArrowLeft, Download, Clock, GitMerge, Folder, Package, Image as ImageIcon } from "lucide-react";
+import { CheckCircle, FileText, Shield, GitBranch, ArrowLeft, Download, Clock, GitMerge, Folder, Package, AlertCircle, Bot, Book, Image as ImageIcon } from "lucide-react";
 import Link from "next/link";
-import Mermaid from "@/components/Mermaid";
+import { MermaidDiagram } from "@/components/mermaid-diagram";
 
 interface PageProps {
   params: Promise<{ slug: string[] }>;
@@ -132,20 +132,52 @@ export default async function ReportPage(props: PageProps) {
            {/* Decision Log */}
            <Card className="bg-zinc-900 border-zinc-800 text-zinc-50">
              <CardHeader>
-               <CardTitle className="text-base">Decision Optics</CardTitle>
+               <CardTitle className="text-base flex items-center justify-between">
+                 <span>Decision Optics</span>
+                 {evidence.adrs.length > 0 && <Badge variant="secondary" className="bg-zinc-800 text-zinc-400">{evidence.adrs.length} Records</Badge>}
+               </CardTitle>
              </CardHeader>
              <CardContent>
                 {evidence.adrs.length === 0 ? (
                   <p className="text-sm text-zinc-500 italic">No decisions recorded.</p>
                 ) : (
-                  <ul className="space-y-2">
-                    {evidence.adrs.slice(0, 5).map((adr, i) => (
-                      <li key={i} className="flex items-center justify-between text-sm">
-                         <span className="truncate max-w-[200px] text-zinc-300">{adr.title || adr.path}</span>
-                         <Badge variant="outline" className="text-zinc-400 border-zinc-700">{adr.status || "Unknown"}</Badge>
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="space-y-4">
+                    {/* Visual Timeline / Graph if enough data */}
+                    {evidence.adrs.length > 0 && (
+                      <div className="rounded border border-zinc-800 bg-zinc-950 p-2 overflow-hidden">
+                        <MermaidDiagram chart={`
+                          graph TD
+                            ${evidence.adrs.map((adr, i) => {
+                              const safeTitle = (adr.title || `ADR-${i}`).replace(/["()]/g, '');
+                              const status = adr.status?.toLowerCase() || 'unknown';
+                              const color = status.includes('accept') ? 'fill:#10b981,stroke:#059669' :
+                                            status.includes('reject') ? 'fill:#ef4444,stroke:#dc2626' :
+                                            status.includes('propos') ? 'fill:#f59e0b,stroke:#d97706' : 'fill:#3f3f46,stroke:#27272a';
+                              return `node${i}["${safeTitle}"]:::${status.replace(/\s+/g, '')}
+                              style node${i} ${color},color:#fff`;
+                            }).join('\n                            ')}
+                            ${evidence.adrs.map((_, i) => i > 0 ? `node${i-1} --> node${i}` : '').join('\n                            ')}
+                        `} />
+                      </div>
+                    )}
+
+                    <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
+                       {evidence.adrs.map((adr, i) => (
+                        <div key={i} className="flex items-center justify-between text-sm p-2 rounded hover:bg-zinc-800/50">
+                           <div className="flex flex-col">
+                             <span className="font-medium text-zinc-300">{adr.title || adr.path}</span>
+                             {adr.date && <span className="text-xs text-zinc-500">{adr.date}</span>}
+                           </div>
+                           <Badge variant="outline" className={cn(
+                             "border-zinc-700",
+                             (adr.status?.toLowerCase().includes("accept") || adr.status?.toLowerCase().includes("implement")) ? "text-green-500 border-green-900" :
+                             (adr.status?.toLowerCase().includes("reject") || adr.status?.toLowerCase().includes("deprecate")) ? "text-red-500 border-red-900" :
+                             "text-zinc-400"
+                           )}>{adr.status || "Unknown"}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
              </CardContent>
            </Card>
@@ -175,6 +207,89 @@ export default async function ReportPage(props: PageProps) {
               </CardContent>
            </Card>
         </div>
+
+     {/* Governance & Compliance */}
+     <Card className="bg-zinc-900 border-zinc-800 text-zinc-50">
+        <CardHeader>
+           <CardTitle className="text-base flex items-center gap-2">
+             <Shield className="h-4 w-4" /> Governance & Compliance
+           </CardTitle>
+        </CardHeader>
+        <CardContent>
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Codeowners */}
+              <div className="space-y-2">
+                 <h3 className="text-sm font-medium text-zinc-400 flex items-center gap-2">
+                    <Shield className="h-3 w-3" /> Code Ownership
+                 </h3>
+                 {evidence.hasCodeowners ? (
+                   <div className="bg-zinc-950 border border-zinc-800 rounded p-2 text-xs font-mono text-zinc-400 max-h-48 overflow-y-auto whitespace-pre-wrap">
+                      {evidence.codeownersContent}
+                   </div>
+                 ) : (
+                   <div className="p-4 bg-red-950/10 border border-red-900/20 rounded text-red-400 text-sm">
+                      Missing CODEOWNERS file.
+                   </div>
+                 )}
+              </div>
+
+              {/* Contributing & Agents */}
+              <div className="space-y-4">
+                 <div className="space-y-2">
+                    <h3 className="text-sm font-medium text-zinc-400 flex items-center gap-2">
+                       <Book className="h-3 w-3" /> Contribution Guidelines
+                    </h3>
+                    {evidence.hasContributing ? (
+                        <div className="flex items-center gap-2 p-2 bg-green-950/10 border border-green-900/20 rounded text-green-400 text-sm">
+                           <CheckCircle className="h-4 w-4" />
+                           <span>CONTRIBUTING.md present ({evidence.contributingContent?.length} bytes)</span>
+                        </div>
+                    ) : (
+                        <div className="p-2 bg-yellow-950/10 border border-yellow-900/20 rounded text-yellow-400 text-sm">
+                           No CONTRIBUTING.md found.
+                        </div>
+                    )}
+                 </div>
+
+                 <div className="space-y-2">
+                    <h3 className="text-sm font-medium text-zinc-400 flex items-center gap-2">
+                       <Bot className="h-3 w-3" /> AI Readiness
+                    </h3>
+                    {evidence.hasAgents ? (
+                        <div className="bg-zinc-950 border border-zinc-800 rounded p-2">
+                           <div className="flex items-center gap-2 text-green-400 text-sm mb-2">
+                              <CheckCircle className="h-4 w-4" /> AGENTS.md detected
+                           </div>
+                           <div className="text-xs font-mono text-zinc-500 line-clamp-3">
+                              {evidence.agentsContent}
+                           </div>
+                        </div>
+                    ) : (
+                        <div className="p-2 bg-zinc-950 border border-zinc-800 rounded text-zinc-500 text-sm flex items-center gap-2">
+                           <AlertCircle className="h-4 w-4" /> No AGENTS.md found.
+                        </div>
+                    )}
+                 </div>
+
+                 <div className="space-y-2">
+                    <h3 className="text-sm font-medium text-zinc-400 flex items-center gap-2">
+                       <Shield className="h-3 w-3" /> Project Governance
+                    </h3>
+                    {evidence.hasGovernance ? (
+                        <div className="flex items-center gap-2 p-2 bg-green-950/10 border border-green-900/20 rounded text-green-400 text-sm">
+                           <CheckCircle className="h-4 w-4" />
+                           <span>GOVERNANCE.md present</span>
+                        </div>
+                    ) : (
+                        <div className="p-2 bg-zinc-950 border border-zinc-800 rounded text-zinc-500 text-sm flex items-center gap-2">
+                           <AlertCircle className="h-4 w-4" /> No explicit GOVERNANCE.md found.
+                        </div>
+                    )}
+                 </div>
+              </div>
+           </div>
+        </CardContent>
+     </Card>
 
         {/* Dependency Audit */}
         <Card className="bg-zinc-900 border-zinc-800 text-zinc-50">
@@ -263,7 +378,7 @@ export default async function ReportPage(props: PageProps) {
                         {evidence.diagrams.map((d, i) => (
                             <div key={i} className="space-y-2">
                                 <h4 className="text-sm font-medium text-zinc-400">{d.path}</h4>
-                                <Mermaid chart={d.content} />
+                                <MermaidDiagram chart={d.content} />
                             </div>
                         ))}
                     </div>

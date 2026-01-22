@@ -26,10 +26,16 @@ export type RepoEvidence = {
   hasReadme: boolean;
   readmeContent?: string;
   hasCodeowners: boolean;
+  codeownersContent?: string;
   hasWorkflows: boolean;
   hasLicense: boolean;
   hasContributing: boolean;
+  contributingContent?: string;
   hasPrTemplate: boolean;
+  hasGovernance: boolean;
+  governanceContent?: string;
+  hasAgents: boolean;
+  agentsContent?: string;
   adrCount: number;
   adrs: AdrFile[];
   diagramCount: number;
@@ -101,15 +107,27 @@ export async function scanRepo(
   }
 
   // 4. Basic File Heuristics
-  const hasCodeowners = files.some((f) =>
+  const codeownersPath = files.find((f) =>
     /^(CODEOWNERS|\.github\/CODEOWNERS)$/i.test(f.path)
-  );
+  )?.path;
+  const hasCodeowners = !!codeownersPath;
   
   const hasLicense = files.some((f) => /^LICENSE/i.test(f.path));
   
-  const hasContributing = files.some((f) => 
+  const contributingPath = files.find((f) =>
     /^(CONTRIBUTING\.md|\.github\/CONTRIBUTING\.md)$/i.test(f.path)
-  );
+  )?.path;
+  const hasContributing = !!contributingPath;
+
+  const governancePath = files.find((f) =>
+    /^(GOVERNANCE\.md|\.github\/GOVERNANCE\.md)$/i.test(f.path)
+  )?.path;
+  const hasGovernance = !!governancePath;
+
+  const agentsPath = files.find((f) =>
+    /^(AGENTS\.md)$/i.test(f.path)
+  )?.path;
+  const hasAgents = !!agentsPath;
 
   const hasWorkflows = files.some((f) =>
     f.path.startsWith(".github/workflows/") && (f.path.endsWith(".yml") || f.path.endsWith(".yaml"))
@@ -164,10 +182,31 @@ export async function scanRepo(
       }));
   }
 
-  // 5. Deep Scan: Parse ADRs (Top 5)
+  // 4.1 Fetch additional content (Codeowners, Contributing, etc)
+  let codeownersContent, contributingContent, governanceContent, agentsContent;
+
+  const contentFetches = [
+    { path: codeownersPath, setter: (c: string) => codeownersContent = c },
+    { path: contributingPath, setter: (c: string) => contributingContent = c },
+    { path: governancePath, setter: (c: string) => governanceContent = c },
+    { path: agentsPath, setter: (c: string) => agentsContent = c },
+  ];
+
+  await Promise.all(contentFetches.map(async ({ path, setter }) => {
+    if (!path) return;
+    try {
+      const { data } = await octokit.rest.repos.getContent({ owner, repo, path });
+      if ("content" in data) {
+        setter(Buffer.from(data.content, "base64").toString("utf-8"));
+      }
+    } catch (e) {
+      console.error(`[Scanner] Failed to fetch ${path}`, e);
+    }
+  }));
+
+  // 5. Deep Scan: Parse ADRs (Top 20)
   const parsedAdrs: AdrFile[] = [];
-  // For MVP, we'll try to fetch content of the first few to check for "Status"
-  const adrsToScan = adrFiles.slice(0, 5); 
+  const adrsToScan = adrFiles.slice(0, 20);
   
   if (adrsToScan.length > 0) {
     console.log(`[Scanner] Parsing ${adrsToScan.length} ADRs...`);
@@ -186,13 +225,13 @@ export async function scanRepo(
         const text = Buffer.from(contentData.content, "base64").toString("utf-8");
         // Simple heuristic parsing
         const titleMatch = text.match(/^#\s+(.+)$/m);
-        const statusMatch = text.match(/Status:\s*(\w+)/i);
+        const statusMatch = text.match(/Status:\s*([\w\s-]+)/i);
         const dateMatch = text.match(/Date:\s*(\d{4}-\d{2}-\d{2})/);
 
         parsedAdrs.push({
           path: file.path,
-          title: titleMatch ? titleMatch[1] : file.path.split("/").pop(),
-          status: statusMatch ? statusMatch[1] : "Unknown",
+          title: titleMatch ? titleMatch[1].trim() : file.path.split("/").pop(),
+          status: statusMatch ? statusMatch[1].trim() : "Unknown",
           date: dateMatch ? dateMatch[1] : undefined,
         });
       }
@@ -200,6 +239,9 @@ export async function scanRepo(
       console.error(`[Scanner] Failed to parse ADR ${file.path}`, e);
     }
   }));
+
+  // Sort ADRs by path or date to keep them in order
+  parsedAdrs.sort((a, b) => a.path.localeCompare(b.path));
 
   // 6. Deep Scan: PR Metrics
   console.log(`[Scanner] Fetching PR metrics...`);
@@ -268,7 +310,13 @@ export async function scanRepo(
     hasWorkflows,
     hasLicense,
     hasContributing,
+    contributingContent,
     hasPrTemplate,
+    hasGovernance,
+    governanceContent,
+    hasAgents,
+    agentsContent,
+    codeownersContent,
     adrCount,
     adrs: parsedAdrs,
     diagramCount,
