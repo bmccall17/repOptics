@@ -89,7 +89,16 @@ export async function auditDependencies(packageJsonContent: string): Promise<Dep
           }
           const data = await res.json();
           const latest = data.version;
-          const severity = determineSeverity(v, latest);
+          let severity = determineSeverity(v, latest);
+
+          // Special handling for @types/node:
+          // Major version updates usually correspond to Node.js version upgrades.
+          // If the project is pinned to a specific major version (e.g. ^20),
+          // we shouldn't flag a newer major version (e.g. 25) as a standard "update"
+          // because it usually implies a runtime upgrade.
+          if (name === "@types/node" && severity === "major") {
+              severity = "none";
+          }
 
           audits.push({
               package: name,
