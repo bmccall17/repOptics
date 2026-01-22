@@ -73,7 +73,6 @@ export async function auditDependencies(packageJsonContent: string): Promise<Dep
 
   // Create an array of promises
   const promises = entries.map(async ([name, version]) => {
-      // @ts-expect-error - version type in package.json can be complex, but we assume string here
       const v = version as string;
       try {
           const res = await fetch(`https://registry.npmjs.org/${name}/latest`);
