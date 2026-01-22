@@ -75,7 +75,9 @@ export async function auditDependencies(packageJsonContent: string): Promise<Dep
   const promises = entries.map(async ([name, version]) => {
       const v = version as string;
       try {
-          const res = await fetch(`https://registry.npmjs.org/${name}/latest`);
+          const res = await fetch(`https://registry.npmjs.org/${name}/latest`, {
+            signal: AbortSignal.timeout(5000)
+          });
           if (!res.ok) {
                audits.push({
                   package: name,
