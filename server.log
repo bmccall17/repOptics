@@ -44,3 +44,4 @@ https://nextjs.org/telemetry
  GET /report/facebook/react 200 in 10.6s (compile: 6.2s, render: 4.4s)
 ✓ Compiled in 188ms
 ✓ Compiled in 82ms
+✓ Compiled in 476ms
