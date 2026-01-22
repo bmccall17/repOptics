@@ -37,10 +37,9 @@ export default async function ReportPage(props: PageProps) {
   console.log(`[ReportPage] Rendering report for ${fullName}`);
 
   try {
-    const start = Date.now();
     console.log(`[ReportPage] Calling scanRepo for ${owner}/${repoName}`);
     evidence = await scanRepo(owner, repoName, process.env.GITHUB_TOKEN);
-    console.log(`[ReportPage] Scan took ${Date.now() - start}ms`);
+    console.log(`[ReportPage] Scan completed`);
 
     report = scoreRepo(evidence);
     recs = generateRecommendations(evidence);
