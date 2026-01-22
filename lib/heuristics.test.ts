@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { scoreRepo, Report, CategoryScore } from "./heuristics";
-import { RepoEvidence, FileNode, AdrFile, PrMetrics } from "./scanner";
+import { scoreRepo } from "./heuristics";
+import { RepoEvidence, AdrFile } from "./scanner";
 
 describe("heuristics", () => {
   const emptyEvidence: RepoEvidence = {

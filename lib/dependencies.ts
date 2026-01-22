@@ -99,7 +99,7 @@ export async function auditDependencies(packageJsonContent: string): Promise<Dep
               severity,
               impact: getImpact(severity)
           });
-      } catch (e) {
+      } catch {
           audits.push({
               package: name,
               currentVersion: v,

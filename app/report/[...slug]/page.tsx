@@ -5,9 +5,8 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { CheckCircle, FileText, Shield, GitBranch, ArrowLeft, Download, Clock, GitMerge, Folder, Package, AlertTriangle, AlertCircle, Image as ImageIcon } from "lucide-react";
+import { CheckCircle, FileText, Shield, GitBranch, ArrowLeft, Download, Clock, GitMerge, Folder, Package, Image as ImageIcon } from "lucide-react";
 import Link from "next/link";
-import { FileNode } from "@/lib/scanner";
 import Mermaid from "@/components/Mermaid";
 
 interface PageProps {

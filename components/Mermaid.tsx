@@ -13,9 +13,10 @@ export default function Mermaid({ chart }: { chart: string }) {
       try {
         const { svg } = await mermaid.render(`mermaid-${id}`, chart);
         setSvg(svg);
-      } catch (e: any) {
+      } catch (e) {
          console.error("Mermaid failed to render", e);
-         setSvg(`<pre class="text-red-500 text-xs overflow-auto p-2 border border-red-800 rounded bg-red-950/20">${e.message || "Invalid Mermaid syntax"}</pre>`);
+         const errorMessage = e instanceof Error ? e.message : "Invalid Mermaid syntax";
+         setSvg(`<pre class="text-red-500 text-xs overflow-auto p-2 border border-red-800 rounded bg-red-950/20">${errorMessage}</pre>`);
       }
     };
     renderChart();
