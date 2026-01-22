@@ -1,16 +1,6 @@
-npm warn exec The following package was not found and will be installed: next@16.1.4
-⚠ Installing TypeScript as it was not found while loading "next.config.ts".
 
-Installing devDependencies (npm):
-- typescript
-
-
-added 447 packages, and audited 448 packages in 30s
-
-157 packages are looking for funding
-  run `npm fund` for details
-
-found 0 vulnerabilities
+> rep-optics-app@0.1.0 dev
+> next dev
 
 ▲ Next.js 16.1.4 (Turbopack)
 - Local:         http://localhost:3000
@@ -22,26 +12,24 @@ This information is used to shape Next.js' roadmap and prioritize features.
 You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
 https://nextjs.org/telemetry
 
-✓ Ready in 32.1s
+✓ Ready in 1531ms
 ○ Compiling /report/[...slug] ...
 [ReportPage] Component started
 [ReportPage] Awaiting params...
-[ReportPage] Params resolved: { slug: [ 'facebook', 'react' ] }
-[ReportPage] Rendering report for facebook/react
-[ReportPage] Calling scanRepo for facebook/react
-[Scanner] Starting scan for facebook/react
+[ReportPage] Params resolved: { slug: [ 'octocat', 'Hello-World' ] }
+[ReportPage] Rendering report for octocat/Hello-World
+[ReportPage] Calling scanRepo for octocat/Hello-World
+[Scanner] Starting scan for octocat/Hello-World
 [Scanner] No GITHUB_TOKEN provided, running unauthenticated (rate limits apply)
-[Scanner] Fetching metadata for facebook/react
-[Scanner] Default branch: main
+[Scanner] Fetching metadata for octocat/Hello-World
+[Scanner] Default branch: master
 [Scanner] Fetching file tree...
-[Scanner] File tree fetched. Items: 7546
-[Scanner] Fetching README content from README.md
+[Scanner] File tree fetched. Items: 1
+[Scanner] Fetching README content from README
 [Scanner] Fetching PR metrics...
-[Scanner] Found 12 merged PRs in last 20.
+[Scanner] Found 1 merged PRs in last 20.
 [Scanner] Auditing dependencies...
 [Scanner] Scan complete.
-[ReportPage] Scan took 3386ms
- GET /report/facebook/react 200 in 10.6s (compile: 6.2s, render: 4.4s)
-✓ Compiled in 188ms
-✓ Compiled in 82ms
-✓ Compiled in 476ms
+[ReportPage] Scan completed
+ GET /report/octocat/Hello-World 200 in 26.1s (compile: 21.9s, render: 4.2s)
+✓ Compiled in 54ms
