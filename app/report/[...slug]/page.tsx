@@ -5,9 +5,10 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { CheckCircle, FileText, Shield, GitBranch, ArrowLeft, Download, Clock, GitMerge, Folder, Package, AlertTriangle, AlertCircle } from "lucide-react";
+import { CheckCircle, FileText, Shield, GitBranch, ArrowLeft, Download, Clock, GitMerge, Folder, Package, AlertTriangle, AlertCircle, Image as ImageIcon } from "lucide-react";
 import Link from "next/link";
 import { FileNode } from "@/lib/scanner";
+import Mermaid from "@/components/Mermaid";
 
 interface PageProps {
   params: Promise<{ slug: string[] }>;
@@ -249,6 +250,27 @@ export default async function ReportPage(props: PageProps) {
              </div>
            </CardContent>
         </Card>
+
+        {/* Diagrams */}
+        {evidence.diagrams.length > 0 && (
+            <Card className="bg-zinc-900 border-zinc-800 text-zinc-50">
+                <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                        <ImageIcon className="h-4 w-4" /> Architecture Diagrams
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 gap-6">
+                        {evidence.diagrams.map((d, i) => (
+                            <div key={i} className="space-y-2">
+                                <h4 className="text-sm font-medium text-zinc-400">{d.path}</h4>
+                                <Mermaid chart={d.content} />
+                            </div>
+                        ))}
+                    </div>
+                </CardContent>
+            </Card>
+        )}
 
         {/* File Tree */}
         <Card className="bg-zinc-900 border-zinc-800 text-zinc-50">

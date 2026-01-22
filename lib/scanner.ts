@@ -33,6 +33,7 @@ export type RepoEvidence = {
   adrCount: number;
   adrs: AdrFile[];
   diagramCount: number;
+  diagrams: { path: string; content: string }[];
   prMetrics: PrMetrics;
   dependencies: DependencyReport;
 };
@@ -126,6 +127,42 @@ export async function scanRepo(
   const diagramCount = files.filter((f) =>
     /\.(puml|mermaid|drawio|excalidraw)$/i.test(f.path) || /docs\/diagrams\//i.test(f.path)
   ).length;
+
+  // Extract diagrams from README and specific files
+  const diagrams: { path: string; content: string }[] = [];
+
+  // 1. From README
+  if (readmeContent) {
+    const mermaidRegex = /```mermaid\n([\s\S]*?)\n```/g;
+    let match;
+    let count = 1;
+    while ((match = mermaidRegex.exec(readmeContent)) !== null) {
+      diagrams.push({
+        path: `README.md (Diagram ${count++})`,
+        content: match[1].trim()
+      });
+    }
+  }
+
+  // 2. From explicit mermaid files (limit to 3)
+  const mermaidFiles = files.filter((f) => /\.(mermaid|mmd)$/i.test(f.path)).slice(0, 3);
+
+  if (mermaidFiles.length > 0) {
+      console.log(`[Scanner] Fetching ${mermaidFiles.length} mermaid files...`);
+      await Promise.all(mermaidFiles.map(async (file) => {
+        try {
+            const { data } = await octokit.rest.repos.getContent({
+                owner, repo, path: file.path
+            });
+            if ("content" in data) {
+                const content = Buffer.from(data.content, "base64").toString("utf-8");
+                diagrams.push({ path: file.path, content });
+            }
+        } catch (e) {
+            console.error(`[Scanner] Failed to fetch diagram ${file.path}`, e);
+        }
+      }));
+  }
 
   // 5. Deep Scan: Parse ADRs (Top 5)
   const parsedAdrs: AdrFile[] = [];
@@ -235,6 +272,7 @@ export async function scanRepo(
     adrCount,
     adrs: parsedAdrs,
     diagramCount,
+    diagrams,
     prMetrics: {
         avgLeadTimeHours,
         mergedCount

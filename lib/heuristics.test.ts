@@ -25,8 +25,10 @@ describe("heuristics", () => {
         outdatedCount: 0,
         majorCount: 0,
         minorCount: 0,
-        patchCount: 0
-    }
+        patchCount: 0,
+        totalDeps: 0
+    },
+    diagrams: []
   };
 
   it("should give a failing grade for an empty repo", () => {
@@ -61,8 +63,10 @@ describe("heuristics", () => {
           outdatedCount: 0,
           majorCount: 0,
           minorCount: 0,
-          patchCount: 0
-      }
+          patchCount: 0,
+          totalDeps: 0
+      },
+      diagrams: []
     };
 
     const report = scoreRepo(perfectEvidence);
