@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
 import { auditDependencies } from "./dependencies";
 
 describe("auditDependencies", () => {
@@ -24,7 +24,7 @@ describe("auditDependencies", () => {
       ok: true,
       json: async () => ({ version: "18.3.0" }) // Newer version
     };
-    (global.fetch as any).mockResolvedValue(mockResponse);
+    (global.fetch as Mock).mockResolvedValue(mockResponse);
 
     const result = await auditDependencies(mockPackageJson);
 
@@ -35,7 +35,7 @@ describe("auditDependencies", () => {
 
   it("should handle slow network with timeout", async () => {
     // Mock a pending promise that never resolves (or takes too long)
-    (global.fetch as any).mockImplementation((url: string, options: any) => {
+    (global.fetch as Mock).mockImplementation((_url: string, options: { signal?: AbortSignal }) => {
       return new Promise((resolve, reject) => {
         const timeoutId = setTimeout(() => {
           resolve({
