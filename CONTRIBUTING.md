@@ -1,32 +1,69 @@
-# Contributing to Rep Optics App
+# Contributing to repOptics
 
-Welcome to the Rep Optics App! This guide outlines the workflows and processes for contributing to the project. We aim to streamline production using AI-assisted development and automated deployments.
+Welcome to repOptics! This guide outlines the workflows and processes for contributing to the project. We use AI-assisted development and automated deployments.
+
+## AI Tool Ecosystem
+
+We use multiple AI coding assistants in our workflow. Here's how they differ:
+
+### Jules (Google's AI Agent)
+- **What it is**: Google's AI engineering agent with direct GitHub integration
+- **Capabilities**: Can read, write, and commit code directly to the repository
+- **Best for**: Routine bug fixes, well-defined feature implementations, automated tasks
+- **Flow**: Jules works autonomously and commits directly to GitHub
+
+### Claude Code (Anthropic's CLI)
+- **What it is**: Anthropic's command-line AI assistant
+- **Capabilities**: Generates code locally, requires human review before commit
+- **Best for**: Complex architectural changes, exploratory work, pair programming
+- **Flow**: Claude stages changes locally; human reviews and commits via GitHub Desktop or CLI
+
+### When to Use Which
+
+| Scenario | Recommended Tool |
+|----------|-----------------|
+| Simple bug fix with clear reproduction | Jules |
+| New feature with existing patterns | Jules |
+| Architectural refactoring | Claude Code |
+| Exploratory prototyping | Claude Code |
+| Documentation updates | Either |
+| Security-sensitive changes | Claude Code (human review) |
+
+### AGENTS.md Files
+
+Both tools can use `AGENTS.md` files to understand project context. This file acts as a "README for robots" and should include:
+- Project structure and conventions
+- Testing requirements
+- Code style guidelines
+- Domain-specific rules
+
+repOptics scans for `AGENTS.md` in its governance checks and the Generator Wizard can create one for new projects.
 
 ## Production Workflows
 
-We use two main workflows for development and deployment. Our production environment is hosted on **Render** and is continuously deployed from our **GitHub** repository.
+Our production environment is hosted on **Render** and continuously deployed from our **GitHub** repository.
 
 ### 1. Primary Workflow: Jules (Automated)
 
-This is our preferred method for most tasks, bug fixes, and feature implementations.
+Preferred for most tasks, bug fixes, and feature implementations.
 
 *   **Agent:** Jules
 *   **Flow:** `Jules -> GitHub -> Render`
 *   **Process:**
-    1.  Jules (the AI engineer) performs the task (coding, testing, verifying).
+    1.  Jules performs the task (coding, testing, verifying).
     2.  Jules commits the changes directly to the GitHub repository.
     3.  Render automatically triggers a deployment based on the new commit.
 
 ### 2. Secondary Workflow: Claude (Staged)
 
-We use this workflow for tasks requiring manual oversight, complex architectural changes, or when working with Claude for staging.
+Used for tasks requiring manual oversight or complex architectural changes.
 
-*   **Agent:** Claude
+*   **Agent:** Claude Code
 *   **Flow:** `Claude (Staged) -> Manual Commit (GitHub Desktop) -> Render`
 *   **Process:**
-    1.  Claude generates the code or changes, which are staged locally.
+    1.  Claude generates code or changes, staged locally.
     2.  A human developer reviews the changes.
-    3.  The changes are committed and pushed manually using **GitHub Desktop**.
+    3.  Changes are committed and pushed manually using **GitHub Desktop**.
     4.  Render automatically triggers a deployment based on the pushed commit.
 
 ## General Guidelines

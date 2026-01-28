@@ -9,21 +9,38 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter }
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ADR_TEMPLATE, ADR_README, CI_WORKFLOW, CODEOWNERS, README_TEMPLATE, AGENTS_MD_TEMPLATE, BASE_PACKAGE_JSON, TSCONFIG_TEMPLATE, ESLINT_CONFIG_TEMPLATE, VITEST_CONFIG_TEMPLATE, DOCKERFILE_TEMPLATE, DOCKER_COMPOSE_TEMPLATE } from "@/lib/templates";
+import { QUESTION_CATEGORIES, getQuestionsByCategory, type DecisionAnswer, type DecisionSnapshot, type Question } from "@/lib/questions";
+import { generateHandoffDocument, generateSimpleHandoff, type ProjectConfig } from "@/lib/handoff";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Download, Shield, FileText, CheckCircle, Box, Bot, Server, RefreshCw } from "lucide-react";
+import { ArrowLeft, ArrowRight, Download, Shield, FileText, CheckCircle, Box, Bot, Server, RefreshCw, Target, Cpu, Database, Cloud, DollarSign, ShieldCheck, Lightbulb } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const STEPS = [
-    { id: 1, title: "Identity", description: "Name and describe your project" },
-    { id: 2, title: "Codebase", description: "Scaffolding and AI readiness" },
-    { id: 3, title: "Governance", description: "Decision tracking and ownership" },
-    { id: 4, title: "Operations", description: "CI/CD and Infrastructure" },
-    { id: 5, title: "Review", description: "Confirm and generate" }
+    { id: 1, title: "Identity", description: "Name and describe your project", icon: FileText },
+    { id: 2, title: "Intent", description: "What are you building and why?", icon: Target },
+    { id: 3, title: "Constraints", description: "Runtime, data, deployment, cost", icon: Cpu },
+    { id: 4, title: "Codebase", description: "Scaffolding and AI readiness", icon: Box },
+    { id: 5, title: "Governance", description: "Decision tracking and ownership", icon: Shield },
+    { id: 6, title: "Operations", description: "CI/CD and Infrastructure", icon: Server },
+    { id: 7, title: "Review", description: "Confirm and generate", icon: CheckCircle }
 ];
+
+const CATEGORY_ICONS: Record<string, React.ElementType> = {
+    intent: Target,
+    runtime: Cpu,
+    data: Database,
+    deploy: Cloud,
+    cost: DollarSign,
+    guardrails: ShieldCheck,
+};
 
 export default function GeneratePage() {
   const [step, setStep] = useState(1);
   const [projectName, setProjectName] = useState("");
   const [description, setDescription] = useState("");
+
+  // Decision capture state
+  const [answers, setAnswers] = useState<DecisionAnswer[]>([]);
 
   // Default values based on "best practice"
   const [includeADR, setIncludeADR] = useState(true);
@@ -34,6 +51,30 @@ export default function GeneratePage() {
   const [includeDocker, setIncludeDocker] = useState(false);
 
   const [isGenerating, setIsGenerating] = useState(false);
+
+  const handleAnswerSelect = (questionId: string, optionId: string, allowMultiple?: boolean) => {
+    setAnswers(prev => {
+      const existing = prev.find(a => a.questionId === questionId);
+      if (!existing) {
+        return [...prev, { questionId, selectedOptionIds: [optionId] }];
+      }
+
+      if (allowMultiple) {
+        const hasOption = existing.selectedOptionIds.includes(optionId);
+        const newSelected = hasOption
+          ? existing.selectedOptionIds.filter(id => id !== optionId)
+          : [...existing.selectedOptionIds, optionId];
+        return prev.map(a => a.questionId === questionId ? { ...a, selectedOptionIds: newSelected } : a);
+      } else {
+        return prev.map(a => a.questionId === questionId ? { ...a, selectedOptionIds: [optionId] } : a);
+      }
+    });
+  };
+
+  const isOptionSelected = (questionId: string, optionId: string): boolean => {
+    const answer = answers.find(a => a.questionId === questionId);
+    return answer?.selectedOptionIds.includes(optionId) ?? false;
+  };
 
   const handleNext = () => {
     if (step === 1 && !projectName) {
@@ -63,6 +104,32 @@ export default function GeneratePage() {
         .replace("{PROJECT_NAME}", projectName)
         .replace("{DESCRIPTION}", description || "A new project with excellent hygiene.");
       zip.file("README.md", readmeContent);
+
+      // Generate and include the Decisions document
+      const config: ProjectConfig = {
+        projectName,
+        description,
+        includeADR,
+        includeCI,
+        includeGovernance,
+        includeScaffold,
+        includeAIContext,
+        includeDocker,
+      };
+
+      const snapshot: DecisionSnapshot = {
+        answers,
+        timestamp: new Date().toISOString(),
+        projectName,
+      };
+
+      // If user answered decision questions, use full handoff; otherwise simple
+      const hasDecisions = answers.length > 0;
+      const handoff = hasDecisions
+        ? generateHandoffDocument(snapshot, config)
+        : generateSimpleHandoff(config);
+
+      zip.file(handoff.filename, handoff.markdown);
 
       // ADRs
       if (includeADR) {
@@ -133,7 +200,7 @@ export default function GeneratePage() {
 
       // Generate Blob
       const content = await zip.generateAsync({ type: "blob" });
-      
+
       // Download Hack
       const url = window.URL.createObjectURL(content);
       const a = document.createElement("a");
@@ -154,10 +221,14 @@ export default function GeneratePage() {
 
   const currentStepInfo = STEPS.find(s => s.id === step);
 
+  // Get questions for Intent (step 2) and Constraints (step 3)
+  const intentQuestions = getQuestionsByCategory("intent");
+  const constraintCategories = ["runtime", "data", "deploy", "cost", "guardrails"] as const;
+
   return (
     <div className="min-h-screen bg-zinc-950 p-6 md:p-12 text-zinc-50 flex flex-col items-center">
       <div className="w-full max-w-3xl space-y-8">
-        
+
         {/* Header & Nav */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <Link href="/" className="flex items-center text-sm text-zinc-400 hover:text-zinc-50 transition-colors">
@@ -177,6 +248,29 @@ export default function GeneratePage() {
             />
         </div>
 
+        {/* Step Indicator Pills */}
+        <div className="flex gap-2 overflow-x-auto pb-2">
+          {STEPS.map((s) => {
+            const Icon = s.icon;
+            return (
+              <button
+                key={s.id}
+                onClick={() => s.id <= step && setStep(s.id)}
+                disabled={s.id > step}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition-colors",
+                  s.id === step ? "bg-blue-600 text-white" :
+                  s.id < step ? "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 cursor-pointer" :
+                  "bg-zinc-900 text-zinc-600 cursor-not-allowed"
+                )}
+              >
+                <Icon className="h-3 w-3" />
+                {s.title}
+              </button>
+            );
+          })}
+        </div>
+
         {/* Main Card */}
         <Card className="bg-zinc-900 border-zinc-800 text-zinc-50 min-h-[400px] flex flex-col">
             <CardHeader>
@@ -184,8 +278,8 @@ export default function GeneratePage() {
                 <CardDescription className="text-zinc-400 text-base">{currentStepInfo?.description}</CardDescription>
             </CardHeader>
 
-            <CardContent className="flex-grow space-y-6 pt-6">
-                
+            <CardContent className="flex-grow space-y-6 pt-6 overflow-y-auto max-h-[500px]">
+
                 {/* Step 1: Identity */}
                 {step === 1 && (
                     <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
@@ -214,8 +308,88 @@ export default function GeneratePage() {
                     </div>
                 )}
 
-                {/* Step 2: Codebase */}
+                {/* Step 2: Intent */}
                 {step === 2 && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                        <div className="p-4 bg-blue-950/20 border border-blue-900/30 rounded-lg">
+                          <div className="flex items-start gap-3">
+                            <Lightbulb className="h-5 w-5 text-blue-400 mt-0.5" />
+                            <div>
+                              <p className="text-sm text-blue-300 font-medium">Why this matters</p>
+                              <p className="text-sm text-zinc-400 mt-1">
+                                Understanding your intent helps us recommend the right level of structure.
+                                A throwaway prototype needs different guardrails than production software.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {intentQuestions.map((question) => (
+                          <QuestionCard
+                            key={question.id}
+                            question={question}
+                            onSelect={(optionId) => handleAnswerSelect(question.id, optionId, question.allowMultiple)}
+                            isSelected={(optionId) => isOptionSelected(question.id, optionId)}
+                          />
+                        ))}
+                    </div>
+                )}
+
+                {/* Step 3: Constraints */}
+                {step === 3 && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                        <div className="p-4 bg-purple-950/20 border border-purple-900/30 rounded-lg">
+                          <div className="flex items-start gap-3">
+                            <Cpu className="h-5 w-5 text-purple-400 mt-0.5" />
+                            <div>
+                              <p className="text-sm text-purple-300 font-medium">Technical constraints shape your architecture</p>
+                              <p className="text-sm text-zinc-400 mt-1">
+                                Answer what you know now. You can skip questions and revisit later.
+                                Your answers inform our technology recommendations.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Category tabs for constraints */}
+                        <div className="flex flex-wrap gap-2">
+                          {constraintCategories.map((cat) => {
+                            const catInfo = QUESTION_CATEGORIES.find(c => c.id === cat);
+                            const Icon = CATEGORY_ICONS[cat];
+                            return (
+                              <span key={cat} className="flex items-center gap-1.5 px-2 py-1 bg-zinc-800 rounded text-xs text-zinc-400">
+                                <Icon className="h-3 w-3" />
+                                {catInfo?.label}
+                              </span>
+                            );
+                          })}
+                        </div>
+
+                        {constraintCategories.map((category) => {
+                          const questions = getQuestionsByCategory(category);
+                          const catInfo = QUESTION_CATEGORIES.find(c => c.id === category);
+                          return (
+                            <div key={category} className="space-y-4">
+                              <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-2">
+                                {catInfo?.label}
+                              </h3>
+                              {questions.map((question) => (
+                                <QuestionCard
+                                  key={question.id}
+                                  question={question}
+                                  onSelect={(optionId) => handleAnswerSelect(question.id, optionId, question.allowMultiple)}
+                                  isSelected={(optionId) => isOptionSelected(question.id, optionId)}
+                                  compact
+                                />
+                              ))}
+                            </div>
+                          );
+                        })}
+                    </div>
+                )}
+
+                {/* Step 4: Codebase */}
+                {step === 4 && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
 
                          <div className="p-4 border border-zinc-800 rounded-lg bg-zinc-950/50 hover:bg-zinc-950 transition-colors cursor-pointer" onClick={() => setIncludeScaffold(!includeScaffold)}>
@@ -258,8 +432,8 @@ export default function GeneratePage() {
                     </div>
                 )}
 
-                {/* Step 3: Governance */}
-                {step === 3 && (
+                {/* Step 5: Governance */}
+                {step === 5 && (
                      <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
                          <div className="p-4 border border-zinc-800 rounded-lg bg-zinc-950/50 hover:bg-zinc-950 transition-colors cursor-pointer" onClick={() => setIncludeADR(!includeADR)}>
                             <div className="flex items-start space-x-3">
@@ -301,8 +475,8 @@ export default function GeneratePage() {
                      </div>
                 )}
 
-                {/* Step 4: Operations */}
-                {step === 4 && (
+                {/* Step 6: Operations */}
+                {step === 6 && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
                         <div className="p-4 border border-zinc-800 rounded-lg bg-zinc-950/50 hover:bg-zinc-950 transition-colors cursor-pointer" onClick={() => setIncludeCI(!includeCI)}>
                             <div className="flex items-start space-x-3">
@@ -344,8 +518,8 @@ export default function GeneratePage() {
                     </div>
                 )}
 
-                 {/* Step 5: Review */}
-                 {step === 5 && (
+                 {/* Step 7: Review */}
+                 {step === 7 && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
                         <div className="bg-zinc-950/50 rounded-lg p-6 border border-zinc-800 space-y-4">
                             <h3 className="font-bold text-lg border-b border-zinc-800 pb-2">Configuration Summary</h3>
@@ -376,6 +550,17 @@ export default function GeneratePage() {
                                     )}
                                 </div>
                             </div>
+
+                            {/* Decision Summary */}
+                            {answers.length > 0 && (
+                              <div className="pt-4 border-t border-zinc-800">
+                                <span className="text-zinc-500 text-sm block mb-2">Decisions Captured</span>
+                                <p className="text-sm text-zinc-400">
+                                  {answers.length} decision{answers.length !== 1 ? "s" : ""} recorded.
+                                  A <code>DECISIONS.md</code> file will be included in your ZIP with full details.
+                                </p>
+                              </div>
+                            )}
                         </div>
                     </div>
                  )}
@@ -392,7 +577,7 @@ export default function GeneratePage() {
                     <ArrowLeft className="mr-2 h-4 w-4" /> Back
                 </Button>
 
-                {step < 5 ? (
+                {step < STEPS.length ? (
                      <Button onClick={handleNext} className="bg-white text-zinc-900 hover:bg-zinc-200">
                         Next Step <ArrowRight className="ml-2 h-4 w-4" />
                      </Button>
@@ -415,7 +600,70 @@ export default function GeneratePage() {
                 )}
             </CardFooter>
         </Card>
-      
+
+      </div>
+    </div>
+  );
+}
+
+// Question Card Component
+function QuestionCard({
+  question,
+  onSelect,
+  isSelected,
+  compact = false
+}: {
+  question: Question;
+  onSelect: (optionId: string) => void;
+  isSelected: (optionId: string) => boolean;
+  compact?: boolean;
+}) {
+  return (
+    <div className={cn("space-y-3", compact ? "p-3 bg-zinc-950/30 rounded-lg" : "")}>
+      <div>
+        <h4 className={cn("font-medium text-zinc-200", compact ? "text-sm" : "text-base")}>{question.text}</h4>
+        {!compact && (
+          <p className="text-xs text-zinc-500 mt-1">{question.whyItMatters}</p>
+        )}
+      </div>
+
+      <div className={cn("grid gap-2", compact ? "grid-cols-2" : "grid-cols-1")}>
+        {question.options.map((option) => {
+          const selected = isSelected(option.id);
+          return (
+            <button
+              key={option.id}
+              onClick={() => onSelect(option.id)}
+              className={cn(
+                "p-3 rounded-lg border text-left transition-all",
+                selected
+                  ? "border-blue-500 bg-blue-950/30"
+                  : "border-zinc-800 bg-zinc-950/50 hover:border-zinc-700"
+              )}
+            >
+              <div className="flex items-start gap-2">
+                <div className={cn(
+                  "w-4 h-4 rounded-full border-2 flex-shrink-0 mt-0.5",
+                  selected ? "border-blue-500 bg-blue-500" : "border-zinc-600"
+                )}>
+                  {selected && (
+                    <CheckCircle className="w-3 h-3 text-white" />
+                  )}
+                </div>
+                <div>
+                  <span className={cn("font-medium block", compact ? "text-sm" : "")}>
+                    {option.label}
+                  </span>
+                  {!compact && (
+                    <span className="text-xs text-zinc-500 block mt-1">
+                      {option.description}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

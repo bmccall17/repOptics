@@ -1,11 +1,11 @@
 import { scanRepo, RepoEvidence } from "@/lib/scanner";
-import { scoreRepo, Report } from "@/lib/heuristics";
+import { scoreRepo, Report, CheckResult, CheckStatus } from "@/lib/heuristics";
 import { generateRecommendations, Recommendation } from "@/lib/recommendations";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { CheckCircle, FileText, Shield, GitBranch, ArrowLeft, Download, Clock, GitMerge, Folder, Package, AlertCircle, Bot, Book } from "lucide-react";
+import { CheckCircle, FileText, Shield, GitBranch, ArrowLeft, Download, Clock, GitMerge, Folder, Package, AlertCircle, Bot, Book, XCircle, CircleDashed, Info, Wrench } from "lucide-react";
 import Link from "next/link";
 import { MermaidDiagram } from "@/components/mermaid-diagram";
 
@@ -99,26 +99,26 @@ export default async function ReportPage(props: PageProps) {
         </Card>
 
         {/* Categories */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <CategoryCard 
-            title="Decisions" 
-            icon={<FileText className="h-5 w-5" />} 
-            data={report.categories.decisions} 
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <CategoryCard
+            title="Decisions"
+            icon={<FileText className="h-5 w-5" />}
+            data={report.categories.decisions}
           />
-          <CategoryCard 
-            title="Architecture" 
-            icon={<CheckCircle className="h-5 w-5" />} 
-            data={report.categories.architecture} 
+          <CategoryCard
+            title="Architecture"
+            icon={<CheckCircle className="h-5 w-5" />}
+            data={report.categories.architecture}
           />
-          <CategoryCard 
-            title="Governance" 
-            icon={<Shield className="h-5 w-5" />} 
-            data={report.categories.governance} 
+          <CategoryCard
+            title="Governance"
+            icon={<Shield className="h-5 w-5" />}
+            data={report.categories.governance}
           />
-          <CategoryCard 
-            title="Delivery" 
-            icon={<GitBranch className="h-5 w-5" />} 
-            data={report.categories.delivery} 
+          <CategoryCard
+            title="Delivery"
+            icon={<GitBranch className="h-5 w-5" />}
+            data={report.categories.delivery}
           />
           <CategoryCard
             title="Dependencies"
@@ -126,6 +126,25 @@ export default async function ReportPage(props: PageProps) {
             data={report.categories.dependencies}
           />
         </div>
+
+        {/* Health Checklist */}
+        <Card className="bg-zinc-900 border-zinc-800 text-zinc-50">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <CheckCircle className="h-5 w-5" /> Health Checklist
+            </CardTitle>
+            <CardDescription className="text-zinc-400">
+              Detailed breakdown of each check with context on why it matters and how to fix issues.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <ChecklistSection title="Decisions" checks={report.categories.decisions.checks} />
+            <ChecklistSection title="Architecture" checks={report.categories.architecture.checks} />
+            <ChecklistSection title="Governance" checks={report.categories.governance.checks} />
+            <ChecklistSection title="Delivery" checks={report.categories.delivery.checks} />
+            <ChecklistSection title="Dependencies" checks={report.categories.dependencies.checks} />
+          </CardContent>
+        </Card>
 
         {/* Deep Dive Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -288,6 +307,72 @@ export default async function ReportPage(props: PageProps) {
                  </div>
               </div>
            </div>
+        </CardContent>
+     </Card>
+
+     {/* Guardrails / Security Features */}
+     <Card className="bg-zinc-900 border-zinc-800 text-zinc-50">
+        <CardHeader>
+           <CardTitle className="text-base flex items-center gap-2">
+             <Shield className="h-4 w-4" /> Guardrails &amp; Security
+           </CardTitle>
+           <CardDescription className="text-zinc-400">
+             Branch protection, automated scanning, and security features.
+             {!process.env.GITHUB_TOKEN && (
+               <span className="text-yellow-500 ml-1">(Some checks require a GITHUB_TOKEN)</span>
+             )}
+           </CardDescription>
+        </CardHeader>
+        <CardContent>
+           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <GuardrailItem
+                label="Branch Protection"
+                enabled={evidence.guardrails.hasBranchProtection}
+                details={evidence.guardrails.hasBranchProtection ? "Enabled" : "Not detected"}
+              />
+              <GuardrailItem
+                label="Required Reviews"
+                enabled={evidence.guardrails.requiresReviews}
+                details={evidence.guardrails.requiresReviews
+                  ? `${evidence.guardrails.requiredReviewers} reviewer${evidence.guardrails.requiredReviewers !== 1 ? "s" : ""}`
+                  : "Not required"}
+              />
+              <GuardrailItem
+                label="CI Status Checks"
+                enabled={evidence.guardrails.requiresStatusChecks}
+                details={evidence.guardrails.requiresStatusChecks
+                  ? `${evidence.guardrails.statusChecks.length} check${evidence.guardrails.statusChecks.length !== 1 ? "s" : ""}`
+                  : "Not required"}
+              />
+              <GuardrailItem
+                label="Dependabot"
+                enabled={evidence.guardrails.hasDependabot}
+                details={evidence.guardrails.hasDependabot ? "Configured" : "Not found"}
+              />
+              <GuardrailItem
+                label="Secret Scanning"
+                enabled={evidence.guardrails.hasSecretScanning}
+                details={evidence.guardrails.hasSecretScanning ? "Enabled" : "Not detected"}
+              />
+              <GuardrailItem
+                label="Code Scanning"
+                enabled={evidence.guardrails.hasCodeScanning}
+                details={evidence.guardrails.hasCodeScanning ? "Workflow found" : "Not found"}
+              />
+           </div>
+
+           {evidence.guardrails.statusChecks.length > 0 && (
+             <div className="mt-4 p-3 bg-zinc-950 border border-zinc-800 rounded">
+               <h4 className="text-xs font-medium text-zinc-400 uppercase mb-2">Required Status Checks</h4>
+               <div className="flex flex-wrap gap-2">
+                 {evidence.guardrails.statusChecks.map((check, i) => (
+                   <span key={i} className="px-2 py-1 bg-zinc-800 rounded text-xs font-mono text-zinc-300">
+                     {check}
+                   </span>
+                 ))}
+               </div>
+             </div>
+           )}
         </CardContent>
      </Card>
 
@@ -467,4 +552,107 @@ function RecommendationCard({ rec }: { rec: Recommendation }) {
         </CardContent>
     </Card>
    )
+}
+
+function ChecklistSection({ title, checks }: { title: string; checks: CheckResult[] }) {
+  return (
+    <div className="space-y-3">
+      <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wider">{title}</h3>
+      <div className="space-y-2">
+        {checks.map((check) => (
+          <CheckItem key={check.id} check={check} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CheckItem({ check }: { check: CheckResult }) {
+  const statusConfig: Record<CheckStatus, { icon: React.ReactNode; color: string; bg: string; border: string }> = {
+    done: {
+      icon: <CheckCircle className="h-4 w-4" />,
+      color: "text-green-400",
+      bg: "bg-green-950/20",
+      border: "border-green-900/30",
+    },
+    partial: {
+      icon: <CircleDashed className="h-4 w-4" />,
+      color: "text-yellow-400",
+      bg: "bg-yellow-950/20",
+      border: "border-yellow-900/30",
+    },
+    not_done: {
+      icon: <XCircle className="h-4 w-4" />,
+      color: "text-red-400",
+      bg: "bg-red-950/20",
+      border: "border-red-900/30",
+    },
+  };
+
+  const config = statusConfig[check.status];
+
+  return (
+    <div className={cn("rounded-lg border p-4", config.bg, config.border)}>
+      <div className="flex items-start gap-3">
+        <div className={cn("mt-0.5", config.color)}>{config.icon}</div>
+        <div className="flex-1 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="font-medium text-zinc-200">{check.name}</span>
+            {check.details && (
+              <span className="text-xs text-zinc-500 font-mono">{check.details}</span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+            <div className="space-y-1">
+              <div className="flex items-center gap-1 text-zinc-500">
+                <Info className="h-3 w-3" />
+                <span className="text-xs font-medium uppercase">Why it matters</span>
+              </div>
+              <p className="text-zinc-400 text-xs">{check.whyItMatters}</p>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex items-center gap-1 text-zinc-500">
+                <AlertCircle className="h-3 w-3" />
+                <span className="text-xs font-medium uppercase">Impact</span>
+              </div>
+              <p className="text-zinc-400 text-xs">{check.impact}</p>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex items-center gap-1 text-zinc-500">
+                <Wrench className="h-3 w-3" />
+                <span className="text-xs font-medium uppercase">Fix</span>
+              </div>
+              <p className="text-zinc-400 text-xs">{check.fix}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GuardrailItem({ label, enabled, details }: { label: string; enabled: boolean; details: string }) {
+  return (
+    <div className={cn(
+      "p-4 rounded-lg border text-center",
+      enabled
+        ? "border-green-900/50 bg-green-950/20"
+        : "border-zinc-800 bg-zinc-950"
+    )}>
+      <div className="flex justify-center mb-2">
+        {enabled ? (
+          <CheckCircle className="h-5 w-5 text-green-500" />
+        ) : (
+          <XCircle className="h-5 w-5 text-zinc-600" />
+        )}
+      </div>
+      <div className={cn("text-sm font-medium", enabled ? "text-green-400" : "text-zinc-500")}>
+        {label}
+      </div>
+      <div className="text-xs text-zinc-500 mt-1">{details}</div>
+    </div>
+  );
 }

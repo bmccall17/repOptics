@@ -19,6 +19,17 @@ export type PrMetrics = {
   mergedCount: number;
 };
 
+export type GuardrailsEvidence = {
+  hasBranchProtection: boolean;
+  requiresReviews: boolean;
+  requiredReviewers: number;
+  requiresStatusChecks: boolean;
+  statusChecks: string[];
+  hasDependabot: boolean;
+  hasSecretScanning: boolean;
+  hasCodeScanning: boolean;
+};
+
 export type RepoEvidence = {
   owner: string;
   repo: string;
@@ -41,6 +52,7 @@ export type RepoEvidence = {
   diagramCount: number;
   prMetrics: PrMetrics;
   dependencies: DependencyReport;
+  guardrails: GuardrailsEvidence;
 };
 
 export async function scanRepo(
@@ -261,6 +273,71 @@ export async function scanRepo(
     }
   }
 
+  // 8. Guardrails Check (Branch Protection, Security Features)
+  console.log(`[Scanner] Checking guardrails...`);
+  const guardrails: GuardrailsEvidence = {
+    hasBranchProtection: false,
+    requiresReviews: false,
+    requiredReviewers: 0,
+    requiresStatusChecks: false,
+    statusChecks: [],
+    hasDependabot: false,
+    hasSecretScanning: false,
+    hasCodeScanning: false,
+  };
+
+  // Check for Dependabot config file
+  guardrails.hasDependabot = files.some((f) =>
+    f.path === ".github/dependabot.yml" || f.path === ".github/dependabot.yaml"
+  );
+
+  // Check for code scanning workflow (CodeQL or similar)
+  guardrails.hasCodeScanning = files.some((f) =>
+    f.path.startsWith(".github/workflows/") &&
+    (f.path.includes("codeql") || f.path.includes("code-scanning"))
+  );
+
+  // Try to fetch branch protection rules (requires admin access or token)
+  if (token) {
+    try {
+      const { data: protection } = await octokit.rest.repos.getBranchProtection({
+        owner,
+        repo,
+        branch: defaultBranch,
+      });
+
+      guardrails.hasBranchProtection = true;
+
+      if (protection.required_pull_request_reviews) {
+        guardrails.requiresReviews = true;
+        guardrails.requiredReviewers =
+          protection.required_pull_request_reviews.required_approving_review_count || 0;
+      }
+
+      if (protection.required_status_checks) {
+        guardrails.requiresStatusChecks = true;
+        guardrails.statusChecks = protection.required_status_checks.contexts || [];
+      }
+    } catch (e) {
+      // 404 means no branch protection, other errors mean we can't access
+      console.log("[Scanner] Branch protection not accessible (may require admin token)");
+    }
+
+    // Try to check security features via repository API
+    try {
+      // Note: secret_scanning requires GitHub Advanced Security or public repo
+      // This info is in the repo object we already fetched
+      if (repoData.security_and_analysis) {
+        const security = repoData.security_and_analysis;
+        guardrails.hasSecretScanning =
+          security.secret_scanning?.status === "enabled" ||
+          security.secret_scanning_push_protection?.status === "enabled";
+      }
+    } catch (e) {
+      console.log("[Scanner] Security features not accessible");
+    }
+  }
+
   console.log(`[Scanner] Scan complete.`);
 
   return {
@@ -287,6 +364,7 @@ export async function scanRepo(
         avgLeadTimeHours,
         mergedCount
     },
-    dependencies: dependencyAudit
+    dependencies: dependencyAudit,
+    guardrails,
   };
 }

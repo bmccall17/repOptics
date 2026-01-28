@@ -1,10 +1,16 @@
-Absolutely. I’m going to help you build a **manual decision tree** for *this* GitHub→PM optics app, and then give you the **most easeful “local → GitHub → Render” workflow** to start clean and stay clean.
+# Architecture Decision Tree
 
-(Also: the two attached PRDs are for *cori* and are great examples of strong MVP discipline—clear “must-haves vs later,” plus explicit non-goals + trust/ethics. We’ll apply that same discipline here.)
+> **Note**: This document captures early ideation and planning discussions from the initial design phase of repOptics. It represents the thought process and decision framework used to shape the MVP, not necessarily the current implementation state. Some recommendations were followed; others were deferred for simplicity.
 
 ---
 
-## 1) Manual decision tree for your GitHub “PM optics” application
+## Background
+
+This decision tree was created to systematically think through the key architectural choices for repOptics before implementation. It follows a "decide first, build second" discipline.
+
+---
+
+## 1) Manual decision tree for the repOptics application
 
 ### Decision 0 — Define the MVP boundary (so you can ship fast)
 
