@@ -4,7 +4,9 @@
       "Bash(npm test)",
       "Bash(npm install)",
       "Bash(npm run build:*)",
-      "Bash(cat app/report/[...slug]/page.tsx)"
+      "Bash(cat app/report/[...slug]/page.tsx)",
+      "Bash(cd:*)",
+      "Bash(grep -n \"process.env\\\\|GITHUB_TOKEN\" app/report/[...slug]/page.tsx lib/scanner.ts)"
     ]
   }
 }
