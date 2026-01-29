@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2026-01-28
+
+### Added
+- **Decision Intelligence**: Generator wizard now uses decision answers to drive behavior (ADR-0005)
+- **Auto-Select Modules**: Modules automatically enabled/disabled based on intent, lifespan, CI, and testing answers
+- **"Recommended" Badges**: Visual indicators show which modules are recommended based on your decisions
+- **Decision Conflict Warnings**: Yellow warning boxes alert users to problematic combinations (e.g., production + no tests, server + $0 budget)
+- **Expanded Stack Recommendations**: 15+ combinatorial recommendations based on runtime, budget, storage, auth, and purpose
+- **Decision Summary**: Collapsible "View all X decisions" section in Review step shows all captured question/answer pairs
+- **Manual Override Tracking**: Auto-selections respect user manual changes and don't overwrite them
+
+### Changed
+- `lib/questions.ts`: Added `validateDecisions()`, `getSelectedOption()`, and `DecisionConflict` type
+- `lib/handoff.ts`: Expanded `generateStackRecommendations()` with combinatorial logic
+- `app/generate/page.tsx`: Added decision-driven module selection and conflict display
+
 ## [0.2.0] - 2026-01-28
 
 ### Added
