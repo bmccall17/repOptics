@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import JSZip from "jszip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,11 +9,44 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter }
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ADR_TEMPLATE, ADR_README, CI_WORKFLOW, CODEOWNERS, README_TEMPLATE, AGENTS_MD_TEMPLATE, BASE_PACKAGE_JSON, TSCONFIG_TEMPLATE, ESLINT_CONFIG_TEMPLATE, VITEST_CONFIG_TEMPLATE, DOCKERFILE_TEMPLATE, DOCKER_COMPOSE_TEMPLATE } from "@/lib/templates";
-import { QUESTION_CATEGORIES, getQuestionsByCategory, type DecisionAnswer, type DecisionSnapshot, type Question } from "@/lib/questions";
+import { QUESTION_CATEGORIES, getQuestionsByCategory, getQuestionById, getSelectedOption, validateDecisions, type DecisionAnswer, type DecisionSnapshot, type DecisionConflict, type Question } from "@/lib/questions";
 import { generateHandoffDocument, generateSimpleHandoff, type ProjectConfig } from "@/lib/handoff";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Download, Shield, FileText, CheckCircle, Box, Bot, Server, RefreshCw, Target, Cpu, Database, Cloud, DollarSign, ShieldCheck, Lightbulb } from "lucide-react";
+import { ArrowLeft, ArrowRight, Download, Shield, FileText, CheckCircle, Box, Bot, Server, RefreshCw, Target, Cpu, Database, Cloud, DollarSign, ShieldCheck, Lightbulb, AlertTriangle, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// Derive recommended module selections from decision answers
+type DerivedModules = {
+  includeADR: boolean;
+  includeCI: boolean;
+  includeGovernance: boolean;
+  includeScaffold: boolean;
+  includeAIContext: boolean;
+  includeDocker: boolean;
+};
+
+function deriveModulesFromDecisions(answers: DecisionAnswer[]): DerivedModules {
+  const purpose = getSelectedOption(answers, "intent-purpose");
+  const lifespan = getSelectedOption(answers, "intent-lifespan");
+  const ciLevel = getSelectedOption(answers, "guardrails-ci");
+  const testing = getSelectedOption(answers, "guardrails-testing");
+  const runtime = getSelectedOption(answers, "runtime-type");
+
+  return {
+    // ADRs recommended for production or long-lived projects
+    includeADR: purpose === "production" || lifespan === "years" || purpose === "internal-tool",
+    // CI recommended if user selected any CI level
+    includeCI: ciLevel !== "none" && ciLevel !== undefined,
+    // Governance recommended for non-prototype projects
+    includeGovernance: purpose !== "prototype" && purpose !== undefined,
+    // Scaffold recommended if testing or CI is enabled
+    includeScaffold: (testing !== "none" && testing !== undefined) || (ciLevel !== "none" && ciLevel !== undefined),
+    // AI context recommended for long-lived projects
+    includeAIContext: lifespan === "years" || lifespan === "months",
+    // Docker recommended for production server deployments
+    includeDocker: purpose === "production" && (runtime === "server" || runtime === "hybrid"),
+  };
+}
 
 const STEPS = [
     { id: 1, title: "Identity", description: "Name and describe your project", icon: FileText },
@@ -50,7 +83,74 @@ export default function GeneratePage() {
   const [includeAIContext, setIncludeAIContext] = useState(false);
   const [includeDocker, setIncludeDocker] = useState(false);
 
+  // Track which modules the user has manually overridden (prevents auto-select from fighting user)
+  const [manualOverrides, setManualOverrides] = useState<Set<keyof DerivedModules>>(new Set());
+
+  // Track derived recommendations for showing "Recommended" badges
+  const [derivedModules, setDerivedModules] = useState<DerivedModules | null>(null);
+
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // Decision conflicts for review step
+  const [conflicts, setConflicts] = useState<DecisionConflict[]>([]);
+
+  // Collapsible decision summary state
+  const [showDecisionSummary, setShowDecisionSummary] = useState(false);
+
+  // Auto-derive module selections when answers change (after step 3)
+  useEffect(() => {
+    if (answers.length === 0) return;
+
+    const derived = deriveModulesFromDecisions(answers);
+    setDerivedModules(derived);
+
+    // Apply derived values only for modules not manually overridden
+    if (!manualOverrides.has("includeADR")) setIncludeADR(derived.includeADR);
+    if (!manualOverrides.has("includeCI")) setIncludeCI(derived.includeCI);
+    if (!manualOverrides.has("includeGovernance")) setIncludeGovernance(derived.includeGovernance);
+    if (!manualOverrides.has("includeScaffold")) setIncludeScaffold(derived.includeScaffold);
+    if (!manualOverrides.has("includeAIContext")) setIncludeAIContext(derived.includeAIContext);
+    if (!manualOverrides.has("includeDocker")) setIncludeDocker(derived.includeDocker);
+
+    // Validate decisions for conflicts
+    setConflicts(validateDecisions(answers));
+  }, [answers, manualOverrides]);
+
+  // Wrapper functions to track manual overrides
+  const handleSetIncludeADR = useCallback((value: boolean) => {
+    setManualOverrides(prev => new Set(prev).add("includeADR"));
+    setIncludeADR(value);
+  }, []);
+
+  const handleSetIncludeCI = useCallback((value: boolean) => {
+    setManualOverrides(prev => new Set(prev).add("includeCI"));
+    setIncludeCI(value);
+  }, []);
+
+  const handleSetIncludeGovernance = useCallback((value: boolean) => {
+    setManualOverrides(prev => new Set(prev).add("includeGovernance"));
+    setIncludeGovernance(value);
+  }, []);
+
+  const handleSetIncludeScaffold = useCallback((value: boolean) => {
+    setManualOverrides(prev => new Set(prev).add("includeScaffold"));
+    setIncludeScaffold(value);
+  }, []);
+
+  const handleSetIncludeAIContext = useCallback((value: boolean) => {
+    setManualOverrides(prev => new Set(prev).add("includeAIContext"));
+    setIncludeAIContext(value);
+  }, []);
+
+  const handleSetIncludeDocker = useCallback((value: boolean) => {
+    setManualOverrides(prev => new Set(prev).add("includeDocker"));
+    setIncludeDocker(value);
+  }, []);
+
+  // Helper to check if a module is recommended by derived logic
+  const isRecommended = (moduleKey: keyof DerivedModules): boolean => {
+    return derivedModules?.[moduleKey] ?? false;
+  };
 
   const handleAnswerSelect = (questionId: string, optionId: string, allowMultiple?: boolean) => {
     setAnswers(prev => {
@@ -392,17 +492,22 @@ export default function GeneratePage() {
                 {step === 4 && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
 
-                         <div className="p-4 border border-zinc-800 rounded-lg bg-zinc-950/50 hover:bg-zinc-950 transition-colors cursor-pointer" onClick={() => setIncludeScaffold(!includeScaffold)}>
+                         <div className="p-4 border border-zinc-800 rounded-lg bg-zinc-950/50 hover:bg-zinc-950 transition-colors cursor-pointer" onClick={() => handleSetIncludeScaffold(!includeScaffold)}>
                             <div className="flex items-start space-x-3">
                                 <Checkbox
                                     id="scaffold"
                                     checked={includeScaffold}
-                                    onCheckedChange={(c) => setIncludeScaffold(c === true)}
+                                    onCheckedChange={(c) => handleSetIncludeScaffold(c === true)}
                                     className="border-zinc-600 data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600 mt-1"
                                 />
                                 <div className="grid gap-1.5 leading-none pointer-events-none">
                                     <Label htmlFor="scaffold" className="font-bold flex items-center gap-2 text-lg cursor-pointer">
                                         <Box className="h-5 w-5 text-orange-400"/> Include Starter Code
+                                        {isRecommended("includeScaffold") && (
+                                          <span className="px-1.5 py-0.5 bg-orange-900/30 text-orange-400 text-xs rounded flex items-center gap-1">
+                                            <Sparkles className="h-3 w-3" /> Recommended
+                                          </span>
+                                        )}
                                     </Label>
                                     <p className="text-sm text-zinc-400">
                                         Generates a standard TypeScript structure (<code>src/</code>, <code>package.json</code>, etc.) so you can start coding immediately.
@@ -411,17 +516,22 @@ export default function GeneratePage() {
                             </div>
                         </div>
 
-                        <div className="p-4 border border-zinc-800 rounded-lg bg-zinc-950/50 hover:bg-zinc-950 transition-colors cursor-pointer" onClick={() => setIncludeAIContext(!includeAIContext)}>
+                        <div className="p-4 border border-zinc-800 rounded-lg bg-zinc-950/50 hover:bg-zinc-950 transition-colors cursor-pointer" onClick={() => handleSetIncludeAIContext(!includeAIContext)}>
                             <div className="flex items-start space-x-3">
                                 <Checkbox
                                     id="agents"
                                     checked={includeAIContext}
-                                    onCheckedChange={(c) => setIncludeAIContext(c === true)}
+                                    onCheckedChange={(c) => handleSetIncludeAIContext(c === true)}
                                     className="border-zinc-600 data-[state=checked]:bg-teal-600 data-[state=checked]:border-teal-600 mt-1"
                                 />
                                 <div className="grid gap-1.5 leading-none pointer-events-none">
                                     <Label htmlFor="agents" className="font-bold flex items-center gap-2 text-lg cursor-pointer">
                                         <Bot className="h-5 w-5 text-teal-400"/> AI Agent Context
+                                        {isRecommended("includeAIContext") && (
+                                          <span className="px-1.5 py-0.5 bg-teal-900/30 text-teal-400 text-xs rounded flex items-center gap-1">
+                                            <Sparkles className="h-3 w-3" /> Recommended
+                                          </span>
+                                        )}
                                     </Label>
                                     <p className="text-sm text-zinc-400">
                                         Adds an <code>AGENTS.md</code> file. This acts as a &quot;readme for robots&quot;, helping AI coding assistants understand your project&apos;s rules and structure.
@@ -435,17 +545,22 @@ export default function GeneratePage() {
                 {/* Step 5: Governance */}
                 {step === 5 && (
                      <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-                         <div className="p-4 border border-zinc-800 rounded-lg bg-zinc-950/50 hover:bg-zinc-950 transition-colors cursor-pointer" onClick={() => setIncludeADR(!includeADR)}>
+                         <div className="p-4 border border-zinc-800 rounded-lg bg-zinc-950/50 hover:bg-zinc-950 transition-colors cursor-pointer" onClick={() => handleSetIncludeADR(!includeADR)}>
                             <div className="flex items-start space-x-3">
                                 <Checkbox
                                     id="adr"
                                     checked={includeADR}
-                                    onCheckedChange={(c) => setIncludeADR(c === true)}
+                                    onCheckedChange={(c) => handleSetIncludeADR(c === true)}
                                     className="border-zinc-600 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 mt-1"
                                 />
                                 <div className="grid gap-1.5 leading-none pointer-events-none">
                                     <Label htmlFor="adr" className="font-bold flex items-center gap-2 text-lg cursor-pointer">
                                         <FileText className="h-5 w-5 text-blue-400"/> Architecture Decision Records
+                                        {isRecommended("includeADR") && (
+                                          <span className="px-1.5 py-0.5 bg-blue-900/30 text-blue-400 text-xs rounded flex items-center gap-1">
+                                            <Sparkles className="h-3 w-3" /> Recommended
+                                          </span>
+                                        )}
                                     </Label>
                                     <p className="text-sm text-zinc-400">
                                         Sets up <code>doc/architecture/decisions</code> to track significant design choices over time. Highly recommended for long-lived projects.
@@ -454,17 +569,22 @@ export default function GeneratePage() {
                             </div>
                         </div>
 
-                        <div className="p-4 border border-zinc-800 rounded-lg bg-zinc-950/50 hover:bg-zinc-950 transition-colors cursor-pointer" onClick={() => setIncludeGovernance(!includeGovernance)}>
+                        <div className="p-4 border border-zinc-800 rounded-lg bg-zinc-950/50 hover:bg-zinc-950 transition-colors cursor-pointer" onClick={() => handleSetIncludeGovernance(!includeGovernance)}>
                             <div className="flex items-start space-x-3">
                                 <Checkbox
                                     id="gov"
                                     checked={includeGovernance}
-                                    onCheckedChange={(c) => setIncludeGovernance(c === true)}
+                                    onCheckedChange={(c) => handleSetIncludeGovernance(c === true)}
                                     className="border-zinc-600 data-[state=checked]:bg-purple-600 data-[state=checked]:border-purple-600 mt-1"
                                 />
                                 <div className="grid gap-1.5 leading-none pointer-events-none">
                                     <Label htmlFor="gov" className="font-bold flex items-center gap-2 text-lg cursor-pointer">
                                         <Shield className="h-5 w-5 text-purple-400"/> Governance Files
+                                        {isRecommended("includeGovernance") && (
+                                          <span className="px-1.5 py-0.5 bg-purple-900/30 text-purple-400 text-xs rounded flex items-center gap-1">
+                                            <Sparkles className="h-3 w-3" /> Recommended
+                                          </span>
+                                        )}
                                     </Label>
                                     <p className="text-sm text-zinc-400">
                                         Includes <code>CODEOWNERS</code> for ownership definitions and Pull Request templates to standardize contributions.
@@ -478,17 +598,22 @@ export default function GeneratePage() {
                 {/* Step 6: Operations */}
                 {step === 6 && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-                        <div className="p-4 border border-zinc-800 rounded-lg bg-zinc-950/50 hover:bg-zinc-950 transition-colors cursor-pointer" onClick={() => setIncludeCI(!includeCI)}>
+                        <div className="p-4 border border-zinc-800 rounded-lg bg-zinc-950/50 hover:bg-zinc-950 transition-colors cursor-pointer" onClick={() => handleSetIncludeCI(!includeCI)}>
                             <div className="flex items-start space-x-3">
                                 <Checkbox
                                     id="ci"
                                     checked={includeCI}
-                                    onCheckedChange={(c) => setIncludeCI(c === true)}
+                                    onCheckedChange={(c) => handleSetIncludeCI(c === true)}
                                     className="border-zinc-600 data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600 mt-1"
                                 />
                                 <div className="grid gap-1.5 leading-none pointer-events-none">
                                     <Label htmlFor="ci" className="font-bold flex items-center gap-2 text-lg cursor-pointer">
                                         <CheckCircle className="h-5 w-5 text-green-400"/> CI Workflow (GitHub Actions)
+                                        {isRecommended("includeCI") && (
+                                          <span className="px-1.5 py-0.5 bg-green-900/30 text-green-400 text-xs rounded flex items-center gap-1">
+                                            <Sparkles className="h-3 w-3" /> Recommended
+                                          </span>
+                                        )}
                                     </Label>
                                     <p className="text-sm text-zinc-400">
                                          Adds a standard CI pipeline to run tests and linting on every push.
@@ -497,17 +622,22 @@ export default function GeneratePage() {
                             </div>
                         </div>
 
-                         <div className="p-4 border border-zinc-800 rounded-lg bg-zinc-950/50 hover:bg-zinc-950 transition-colors cursor-pointer" onClick={() => setIncludeDocker(!includeDocker)}>
+                         <div className="p-4 border border-zinc-800 rounded-lg bg-zinc-950/50 hover:bg-zinc-950 transition-colors cursor-pointer" onClick={() => handleSetIncludeDocker(!includeDocker)}>
                             <div className="flex items-start space-x-3">
                                 <Checkbox
                                     id="docker"
                                     checked={includeDocker}
-                                    onCheckedChange={(c) => setIncludeDocker(c === true)}
+                                    onCheckedChange={(c) => handleSetIncludeDocker(c === true)}
                                     className="border-zinc-600 data-[state=checked]:bg-cyan-600 data-[state=checked]:border-cyan-600 mt-1"
                                 />
                                 <div className="grid gap-1.5 leading-none pointer-events-none">
                                     <Label htmlFor="docker" className="font-bold flex items-center gap-2 text-lg cursor-pointer">
                                         <Server className="h-5 w-5 text-cyan-400"/> Docker Infrastructure
+                                        {isRecommended("includeDocker") && (
+                                          <span className="px-1.5 py-0.5 bg-cyan-900/30 text-cyan-400 text-xs rounded flex items-center gap-1">
+                                            <Sparkles className="h-3 w-3" /> Recommended
+                                          </span>
+                                        )}
                                     </Label>
                                     <p className="text-sm text-zinc-400">
                                         Includes <code>Dockerfile</code> and <code>docker-compose.yml</code> for containerized development and deployment.
@@ -521,6 +651,42 @@ export default function GeneratePage() {
                  {/* Step 7: Review */}
                  {step === 7 && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+
+                        {/* Decision Conflict Warnings */}
+                        {conflicts.length > 0 && (
+                          <div className="space-y-3">
+                            {conflicts.map((conflict, i) => (
+                              <div
+                                key={i}
+                                className={cn(
+                                  "p-4 rounded-lg border",
+                                  conflict.severity === "error"
+                                    ? "bg-red-950/20 border-red-900/30"
+                                    : "bg-yellow-950/20 border-yellow-900/30"
+                                )}
+                              >
+                                <div className="flex items-start gap-3">
+                                  <AlertTriangle className={cn(
+                                    "h-5 w-5 mt-0.5 flex-shrink-0",
+                                    conflict.severity === "error" ? "text-red-400" : "text-yellow-400"
+                                  )} />
+                                  <div>
+                                    <p className={cn(
+                                      "font-medium text-sm",
+                                      conflict.severity === "error" ? "text-red-300" : "text-yellow-300"
+                                    )}>
+                                      {conflict.message}
+                                    </p>
+                                    <p className="text-sm text-zinc-400 mt-1">
+                                      {conflict.suggestion}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
                         <div className="bg-zinc-950/50 rounded-lg p-6 border border-zinc-800 space-y-4">
                             <h3 className="font-bold text-lg border-b border-zinc-800 pb-2">Configuration Summary</h3>
 
@@ -551,12 +717,30 @@ export default function GeneratePage() {
                                 </div>
                             </div>
 
-                            {/* Decision Summary */}
+                            {/* Decision Summary - Collapsible */}
                             {answers.length > 0 && (
                               <div className="pt-4 border-t border-zinc-800">
-                                <span className="text-zinc-500 text-sm block mb-2">Decisions Captured</span>
-                                <p className="text-sm text-zinc-400">
-                                  {answers.length} decision{answers.length !== 1 ? "s" : ""} recorded.
+                                <button
+                                  onClick={() => setShowDecisionSummary(!showDecisionSummary)}
+                                  className="flex items-center gap-2 text-zinc-400 hover:text-zinc-200 transition-colors w-full text-left"
+                                >
+                                  {showDecisionSummary ? (
+                                    <ChevronUp className="h-4 w-4" />
+                                  ) : (
+                                    <ChevronDown className="h-4 w-4" />
+                                  )}
+                                  <span className="text-sm">
+                                    View all {answers.length} decision{answers.length !== 1 ? "s" : ""}
+                                  </span>
+                                </button>
+
+                                {showDecisionSummary && (
+                                  <div className="mt-3 space-y-2 pl-6">
+                                    <DecisionSummaryList answers={answers} />
+                                  </div>
+                                )}
+
+                                <p className="text-sm text-zinc-500 mt-2 pl-6">
                                   A <code>DECISIONS.md</code> file will be included in your ZIP with full details.
                                 </p>
                               </div>
@@ -665,6 +849,33 @@ function QuestionCard({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// Decision Summary List Component for Review step
+function DecisionSummaryList({ answers }: { answers: DecisionAnswer[] }) {
+  return (
+    <div className="space-y-3">
+      {answers.map((answer) => {
+        const question = getQuestionById(answer.questionId);
+        if (!question) return null;
+
+        const selectedOptions = answer.selectedOptionIds
+          .map(id => question.options.find(o => o.id === id))
+          .filter(Boolean);
+
+        return (
+          <div key={answer.questionId} className="text-sm">
+            <span className="text-zinc-500">{question.text}</span>
+            <span className="text-zinc-300 ml-2">
+              → {selectedOptions.length > 0
+                ? selectedOptions.map(o => o?.label).join(", ")
+                : "(Not answered)"}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }

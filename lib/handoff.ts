@@ -170,64 +170,159 @@ function formatDecisionsByCategory(snapshot: DecisionSnapshot): string {
 function generateStackRecommendations(snapshot: DecisionSnapshot): string {
   const recommendations: string[] = [];
 
-  // Analyze runtime decision
-  const runtimeAnswer = snapshot.answers.find(
-    (a) => a.questionId === "runtime-type"
-  );
-  if (runtimeAnswer?.selectedOptionIds.includes("static")) {
+  // Helper to get selected option
+  const getOption = (questionId: string): string | undefined => {
+    const answer = snapshot.answers.find(a => a.questionId === questionId);
+    return answer?.selectedOptionIds[0];
+  };
+
+  const runtime = getOption("runtime-type");
+  const storage = getOption("data-storage");
+  const auth = getOption("data-auth");
+  const budget = getOption("cost-budget");
+  const ci = getOption("guardrails-ci");
+  const testing = getOption("guardrails-testing");
+  const purpose = getOption("intent-purpose");
+
+  // ============================================
+  // HOSTING RECOMMENDATIONS (based on runtime + budget)
+  // ============================================
+
+  if (runtime === "static") {
+    if (budget === "zero") {
+      recommendations.push(
+        "- **Hosting**: GitHub Pages (free, automatic from repo) or Cloudflare Pages (free, faster global CDN)"
+      );
+    } else {
+      recommendations.push(
+        "- **Hosting**: Cloudflare Pages (fast global CDN, generous free tier) or Netlify (great DX, preview deploys)"
+      );
+    }
+  } else if (runtime === "serverless") {
     recommendations.push(
-      "- **Hosting**: GitHub Pages, Netlify, or Cloudflare Pages (free static hosting)"
+      "- **Hosting**: Vercel (optimized for Next.js, preview deploys) or Cloudflare Workers (edge computing, low latency)"
     );
-  } else if (runtimeAnswer?.selectedOptionIds.includes("serverless")) {
+  } else if (runtime === "server") {
+    if (budget === "zero") {
+      recommendations.push(
+        "- **Hosting**: Render free tier (note: sleeps after 15 min inactivity, cold starts ~30s) or Fly.io free tier (similar limitations)"
+      );
+    } else if (budget === "hobby") {
+      recommendations.push(
+        "- **Hosting**: Render Starter ($7/mo, no sleep) or Railway ($5+/mo, usage-based)"
+      );
+    } else {
+      recommendations.push(
+        "- **Hosting**: Render or Railway (both excellent for production Node.js), or Fly.io for global distribution"
+      );
+    }
+  } else if (runtime === "hybrid") {
     recommendations.push(
-      "- **Hosting**: Vercel or Cloudflare Workers (serverless, scales to zero)"
-    );
-  } else if (runtimeAnswer?.selectedOptionIds.includes("server")) {
-    recommendations.push(
-      "- **Hosting**: Render or Railway (always-on server)"
+      "- **Hosting**: Vercel (best Next.js support, handles SSR + static seamlessly) or Netlify (good alternative)"
     );
   }
 
-  // Analyze data decision
-  const dataAnswer = snapshot.answers.find(
-    (a) => a.questionId === "data-storage"
-  );
-  if (dataAnswer?.selectedOptionIds.includes("database")) {
-    recommendations.push(
-      "- **Database**: Supabase (Postgres) or PlanetScale (MySQL)"
-    );
-  } else if (dataAnswer?.selectedOptionIds.includes("local")) {
-    recommendations.push(
-      "- **Storage**: Browser localStorage or IndexedDB (no server needed)"
-    );
-  }
+  // ============================================
+  // DATABASE RECOMMENDATIONS (based on storage + budget + purpose)
+  // ============================================
 
-  // Analyze auth decision
-  const authAnswer = snapshot.answers.find((a) => a.questionId === "data-auth");
-  if (authAnswer?.selectedOptionIds.includes("oauth")) {
-    recommendations.push("- **Auth**: NextAuth.js or Clerk (OAuth providers)");
-  }
-
-  // Analyze cost decision
-  const costAnswer = snapshot.answers.find(
-    (a) => a.questionId === "cost-budget"
-  );
-  if (costAnswer?.selectedOptionIds.includes("zero")) {
+  if (storage === "database") {
+    if (budget === "zero") {
+      recommendations.push(
+        "- **Database**: Supabase free tier (500MB Postgres, includes auth) or PlanetScale free tier (5GB MySQL)"
+      );
+    } else if (purpose === "production") {
+      recommendations.push(
+        "- **Database**: Supabase Pro ($25/mo, 8GB) or PlanetScale Scaler ($29/mo) for production workloads"
+      );
+    } else {
+      recommendations.push(
+        "- **Database**: Supabase (Postgres + auth + storage combo) or PlanetScale (MySQL with branching)"
+      );
+    }
+  } else if (storage === "local") {
     recommendations.push(
-      "- **Budget Note**: Stick to free tiers - Vercel, Supabase, Cloudflare all have generous free plans"
+      "- **Storage**: Browser localStorage (5MB limit) or IndexedDB (larger, async) - no server costs"
+    );
+  } else if (storage === "file") {
+    recommendations.push(
+      "- **Storage**: SQLite (single file, great for low-traffic apps) or JSON files (simplest)"
     );
   }
 
-  // Analyze CI decision
-  const ciAnswer = snapshot.answers.find(
-    (a) => a.questionId === "guardrails-ci"
-  );
-  if (
-    ciAnswer?.selectedOptionIds.includes("ci") ||
-    ciAnswer?.selectedOptionIds.includes("ci-cd")
-  ) {
+  // ============================================
+  // AUTH RECOMMENDATIONS (based on auth type + purpose)
+  // ============================================
+
+  if (auth === "oauth") {
+    if (purpose === "production") {
+      recommendations.push(
+        "- **Auth**: Clerk (polished UI, MFA, good DX) or Auth0 (enterprise features) - both have free tiers"
+      );
+    } else {
+      recommendations.push(
+        "- **Auth**: NextAuth.js (free, self-hosted, supports many providers) - best for internal tools"
+      );
+    }
+  } else if (auth === "simple") {
     recommendations.push(
-      "- **CI/CD**: GitHub Actions (included with repo, generous free minutes)"
+      "- **Auth**: Magic link via Resend (simple, passwordless) or Supabase Auth (if using Supabase DB)"
+    );
+  } else if (auth === "full") {
+    recommendations.push(
+      "- **Auth**: Clerk or Auth0 for managed auth, or Lucia (self-hosted, full control)"
+    );
+  }
+
+  // ============================================
+  // CI/CD RECOMMENDATIONS (based on ci + testing)
+  // ============================================
+
+  if (ci === "ci" || ci === "ci-cd") {
+    recommendations.push(
+      "- **CI/CD**: GitHub Actions (free for public repos, 2000 min/mo free for private)"
+    );
+  } else if (ci === "lint-only") {
+    recommendations.push(
+      "- **CI**: GitHub Actions with lint-only workflow (fast, catches obvious issues)"
+    );
+  }
+
+  // ============================================
+  // TESTING RECOMMENDATIONS (based on testing level)
+  // ============================================
+
+  if (testing === "unit" || testing === "full") {
+    recommendations.push(
+      "- **Testing**: Vitest (fast, Jest-compatible) + Testing Library (component tests)"
+    );
+  } else if (testing === "smoke") {
+    recommendations.push(
+      "- **Testing**: Playwright for smoke tests (catches broken pages/flows)"
+    );
+  }
+
+  // ============================================
+  // BUDGET-SPECIFIC NOTES
+  // ============================================
+
+  if (budget === "zero") {
+    recommendations.push(
+      "- **Budget Strategy**: Combine free tiers: Vercel/Cloudflare + Supabase + GitHub Actions = $0/mo for small projects"
+    );
+  } else if (budget === "enterprise") {
+    recommendations.push(
+      "- **Budget Strategy**: Consider managed services (Vercel Enterprise, AWS, GCP) for SLAs and support"
+    );
+  }
+
+  // ============================================
+  // PRODUCTION-SPECIFIC ADDITIONS
+  // ============================================
+
+  if (purpose === "production") {
+    recommendations.push(
+      "- **Monitoring**: Sentry (error tracking, free tier) or LogRocket (session replay)"
     );
   }
 

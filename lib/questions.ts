@@ -38,6 +38,12 @@ export type DecisionAnswer = {
   customNote?: string;
 };
 
+export type DecisionConflict = {
+  severity: "warning" | "error";
+  message: string;
+  suggestion: string;
+};
+
 export type DecisionSnapshot = {
   answers: DecisionAnswer[];
   timestamp: string;
@@ -595,6 +601,92 @@ export function getQuestionsByCategory(category: QuestionCategory): Question[] {
 
 export function getQuestionById(id: string): Question | undefined {
   return QUESTION_BANK.find(q => q.id === id);
+}
+
+/**
+ * Helper to get a selected option ID for a specific question
+ */
+export function getSelectedOption(answers: DecisionAnswer[], questionId: string): string | undefined {
+  const answer = answers.find(a => a.questionId === questionId);
+  return answer?.selectedOptionIds[0];
+}
+
+/**
+ * Validate decisions for conflicts and inconsistencies
+ * Returns warnings/errors when decision combinations are problematic
+ */
+export function validateDecisions(answers: DecisionAnswer[]): DecisionConflict[] {
+  const conflicts: DecisionConflict[] = [];
+
+  const purpose = getSelectedOption(answers, "intent-purpose");
+  const lifespan = getSelectedOption(answers, "intent-lifespan");
+  const testing = getSelectedOption(answers, "guardrails-testing");
+  const ci = getSelectedOption(answers, "guardrails-ci");
+  const runtime = getSelectedOption(answers, "runtime-type");
+  const budget = getSelectedOption(answers, "cost-budget");
+
+  // Production + no tests
+  if (purpose === "production" && testing === "none") {
+    conflicts.push({
+      severity: "warning",
+      message: "Production software without automated tests",
+      suggestion: "Consider at least smoke tests to catch obvious breaks before deployment"
+    });
+  }
+
+  // Years lifespan + no ADRs (captured via purpose/lifespan combo, ADRs are module option)
+  if (lifespan === "years" && purpose !== "prototype") {
+    // This is a soft recommendation - we'll handle ADR checkbox separately
+  }
+
+  // Server runtime + $0 budget
+  if (runtime === "server" && budget === "zero") {
+    conflicts.push({
+      severity: "warning",
+      message: "Server runtime on a $0 budget has strict limitations",
+      suggestion: "Free tier servers have cold starts, limited hours, and may sleep after inactivity. Consider serverless or static hosting for $0."
+    });
+  }
+
+  // Production + no CI
+  if (purpose === "production" && ci === "none") {
+    conflicts.push({
+      severity: "warning",
+      message: "Production software without CI pipeline",
+      suggestion: "Manual deploys risk shipping broken code. Add at least lint-only CI to catch obvious issues."
+    });
+  }
+
+  // Prototype with overkill setup
+  if (purpose === "prototype" && testing === "full" && (ci === "ci" || ci === "ci-cd")) {
+    conflicts.push({
+      severity: "warning",
+      message: "Full test suite and CI/CD for a prototype may be overkill",
+      suggestion: "Prototypes are meant to be fast and disposable. Consider lighter testing to validate ideas quicker."
+    });
+  }
+
+  // Database + $0 budget - note about limits
+  const storage = getSelectedOption(answers, "data-storage");
+  if (storage === "database" && budget === "zero") {
+    conflicts.push({
+      severity: "warning",
+      message: "Database on $0 budget has row/storage limits",
+      suggestion: "Free database tiers (Supabase: 500MB, PlanetScale: 5GB) are fine for development but plan for upgrades in production."
+    });
+  }
+
+  // OAuth + prototype
+  const auth = getSelectedOption(answers, "data-auth");
+  if (auth === "oauth" && purpose === "prototype") {
+    conflicts.push({
+      severity: "warning",
+      message: "OAuth setup for a prototype adds complexity",
+      suggestion: "OAuth requires provider registration and callback configuration. Consider magic links or skip auth for faster prototyping."
+    });
+  }
+
+  return conflicts;
 }
 
 export function summarizeDecisions(snapshot: DecisionSnapshot): {
