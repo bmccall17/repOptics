@@ -6,7 +6,11 @@
       "Bash(npm run build:*)",
       "Bash(cat app/report/[...slug]/page.tsx)",
       "Bash(cd:*)",
-      "Bash(grep -n \"process.env\\\\|GITHUB_TOKEN\" app/report/[...slug]/page.tsx lib/scanner.ts)"
+      "Bash(grep -n \"process.env\\\\|GITHUB_TOKEN\" app/report/[...slug]/page.tsx lib/scanner.ts)",
+      "Bash(comm:*)",
+      "Bash(echo === $f ===:*)",
+      "Bash(npx tsc:*)",
+      "Bash(head:*)"
     ]
   }
 }

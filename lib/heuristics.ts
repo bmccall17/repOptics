@@ -1,4 +1,5 @@
 import { RepoEvidence } from "./scanner";
+import { RepOpticsConfig, DEFAULT_CONFIG } from "./config";
 
 export type CheckStatus = "done" | "partial" | "not_done";
 
@@ -32,21 +33,30 @@ export type Report = {
   summary: string;
 };
 
-export function scoreRepo(evidence: RepoEvidence): Report {
-  const decisions = scoreDecisions(evidence);
-  const architecture = scoreArchitecture(evidence);
-  const governance = scoreGovernance(evidence);
-  const delivery = scoreDelivery(evidence);
-  const dependencies = scoreDependencies(evidence);
+export function scoreRepo(
+  evidence: RepoEvidence,
+  config: RepOpticsConfig = DEFAULT_CONFIG
+): Report {
+  const decisions = scoreDecisions(evidence, config);
+  const architecture = scoreArchitecture(evidence, config);
+  const governance = scoreGovernance(evidence, config);
+  const delivery = scoreDelivery(evidence, config);
+  const dependencies = scoreDependencies(evidence, config);
 
+  const w = config.categoryWeights;
+  const totalWeight = w.decisions + w.architecture + w.governance + w.delivery + w.dependencies;
   const totalScore = Math.round(
-    (decisions.score + architecture.score + governance.score + delivery.score + dependencies.score) / 5
+    (decisions.score * w.decisions +
+     architecture.score * w.architecture +
+     governance.score * w.governance +
+     delivery.score * w.delivery +
+     dependencies.score * w.dependencies) / totalWeight
   );
 
   let grade = "F";
-  if (totalScore >= 90) grade = "A";
-  else if (totalScore >= 70) grade = "B";
-  else if (totalScore >= 50) grade = "C";
+  if (totalScore >= config.gradeThresholds.A) grade = "A";
+  else if (totalScore >= config.gradeThresholds.B) grade = "B";
+  else if (totalScore >= config.gradeThresholds.C) grade = "C";
 
   return {
     totalScore,
@@ -58,16 +68,18 @@ export function scoreRepo(evidence: RepoEvidence): Report {
       delivery,
       dependencies,
     },
-    summary: generateSummary(grade),
+    summary: generateSummary(grade, config),
   };
 }
 
-function scoreDependencies(evidence: RepoEvidence): CategoryScore {
+function scoreDependencies(evidence: RepoEvidence, config: RepOpticsConfig): CategoryScore {
+  const cfg = config.scoring.dependencies;
+  const p = config.personality.dependencies;
   let score = 100;
   const { outdatedCount, majorCount, minorCount, patchCount, totalDeps } = evidence.dependencies;
 
-  if (majorCount > 0) score -= majorCount * 15;
-  if (minorCount > 0) score -= minorCount * 5;
+  if (majorCount > 0) score -= majorCount * cfg.majorPenalty;
+  if (minorCount > 0) score -= minorCount * cfg.minorPenalty;
 
   if (score < 0) score = 0;
 
@@ -93,7 +105,7 @@ function scoreDependencies(evidence: RepoEvidence): CategoryScore {
     {
       id: "deps-no-minor",
       name: "No minor version updates pending",
-      status: minorCount === 0 ? "done" : minorCount <= 3 ? "partial" : "not_done",
+      status: minorCount === 0 ? "done" : minorCount <= cfg.minorPartialThreshold ? "partial" : "not_done",
       whyItMatters: "Minor versions add new features and bug fixes without breaking changes.",
       impact: "Missing minor updates means missing out on improvements and potential security patches.",
       fix: "Run `npm update` to safely update minor versions.",
@@ -102,7 +114,7 @@ function scoreDependencies(evidence: RepoEvidence): CategoryScore {
     {
       id: "deps-fresh",
       name: "Dependencies are fresh",
-      status: outdatedCount === 0 ? "done" : outdatedCount <= 5 ? "partial" : "not_done",
+      status: outdatedCount === 0 ? "done" : outdatedCount <= cfg.outdatedPartialThreshold ? "partial" : "not_done",
       whyItMatters: "Fresh dependencies ensure you have the latest security patches and improvements.",
       impact: "Stale dependencies accumulate tech debt and make future updates harder.",
       fix: "Regularly run `npm outdated` and update dependencies incrementally.",
@@ -111,25 +123,34 @@ function scoreDependencies(evidence: RepoEvidence): CategoryScore {
   ];
 
   let message: string;
-  if (score >= 90) {
-    message = "Fresh as a daisy.";
-  } else if (score >= 60) {
-    message = `${outdatedCount} updates available.`;
+  if (score >= cfg.greenThreshold) {
+    message = p.green;
+  } else if (score >= cfg.yellowThreshold) {
+    message = p.yellowTemplate
+      .replace("{outdatedCount}", String(outdatedCount));
   } else {
-    message = `Dep rot detected. ${majorCount} major updates.`;
+    message = p.redTemplate
+      .replace("{majorCount}", String(majorCount));
   }
 
-  return { score, status: score >= 90 ? "green" : score >= 60 ? "yellow" : "red", message, checks };
+  return {
+    score,
+    status: score >= cfg.greenThreshold ? "green" : score >= cfg.yellowThreshold ? "yellow" : "red",
+    message,
+    checks,
+  };
 }
 
-function scoreDecisions(evidence: RepoEvidence): CategoryScore {
+function scoreDecisions(evidence: RepoEvidence, config: RepOpticsConfig): CategoryScore {
+  const cfg = config.scoring.decisions;
+  const p = config.personality.decisions;
   let score = 0;
 
-  if (evidence.adrCount > 0) score += 50;
-  if (evidence.adrCount > 2) score += 30;
+  if (evidence.adrCount > 0) score += cfg.adrExistsPoints;
+  if (evidence.adrCount > 2) score += cfg.multipleAdrsPoints;
 
   const hasDates = evidence.adrs.some(a => !!a.date);
-  if (hasDates) score += 20;
+  if (hasDates) score += cfg.datedAdrsPoints;
 
   const checks: CheckResult[] = [
     {
@@ -160,35 +181,37 @@ function scoreDecisions(evidence: RepoEvidence): CategoryScore {
   ];
 
   let message: string;
-  if (score >= 100) {
-    message = "History will remember you.";
-  } else if (score >= 50) {
-    message = "A few decisions recorded. Better than telepathy.";
+  if (score >= cfg.greenThreshold) {
+    message = p.green;
+  } else if (score >= cfg.yellowThreshold) {
+    message = p.yellow;
   } else {
-    message = "Zero ADRs. Decisions made by hallway shouts?";
+    message = p.red;
   }
 
   return {
-    score: score >= 100 ? 100 : score >= 50 ? 60 : 0,
-    status: score >= 100 ? "green" : score >= 50 ? "yellow" : "red",
+    score: score >= cfg.greenThreshold ? cfg.greenScore : score >= cfg.yellowThreshold ? cfg.yellowScore : 0,
+    status: score >= cfg.greenThreshold ? "green" : score >= cfg.yellowThreshold ? "yellow" : "red",
     message,
     checks,
   };
 }
 
-function scoreArchitecture(evidence: RepoEvidence): CategoryScore {
+function scoreArchitecture(evidence: RepoEvidence, config: RepOpticsConfig): CategoryScore {
+  const cfg = config.scoring.architecture;
+  const p = config.personality.architecture;
   let score = 0;
 
   if (evidence.hasReadme) {
-    if (evidence.readmeContent && evidence.readmeContent.length > 1000) {
-      score += 50;
+    if (evidence.readmeContent && evidence.readmeContent.length > cfg.readmeCharThreshold) {
+      score += cfg.readmeLongPoints;
     } else {
-      score += 20;
+      score += cfg.readmeShortPoints;
     }
   }
 
   if (evidence.diagramCount > 0) {
-    score += 50;
+    score += cfg.diagramPoints;
   }
 
   const readmeLength = evidence.readmeContent?.length || 0;
@@ -205,7 +228,7 @@ function scoreArchitecture(evidence: RepoEvidence): CategoryScore {
     {
       id: "arch-readme-comprehensive",
       name: "README is comprehensive",
-      status: readmeLength > 1000 ? "done" : evidence.hasReadme ? "partial" : "not_done",
+      status: readmeLength > cfg.readmeCharThreshold ? "done" : evidence.hasReadme ? "partial" : "not_done",
       whyItMatters: "A comprehensive README reduces onboarding time and support questions.",
       impact: "Short READMEs leave developers guessing and lead to incorrect assumptions.",
       fix: "Expand your README with: overview, installation, usage, configuration, and contributing sections.",
@@ -223,27 +246,29 @@ function scoreArchitecture(evidence: RepoEvidence): CategoryScore {
   ];
 
   let message: string;
-  if (score >= 80) {
-    message = "Well documented. A joy to read.";
-  } else if (score >= 40) {
-    message = "Basic README found, but where are the pictures?";
+  if (score >= cfg.greenThreshold) {
+    message = p.green;
+  } else if (score >= cfg.yellowThreshold) {
+    message = p.yellow;
   } else {
-    message = "No README. Good luck, future maintainers.";
+    message = p.red;
   }
 
   return {
-    score: score >= 80 ? 100 : score >= 40 ? 50 : 0,
-    status: score >= 80 ? "green" : score >= 40 ? "yellow" : "red",
+    score: score >= cfg.greenThreshold ? cfg.greenScore : score >= cfg.yellowThreshold ? cfg.yellowScore : 0,
+    status: score >= cfg.greenThreshold ? "green" : score >= cfg.yellowThreshold ? "yellow" : "red",
     message,
     checks,
   };
 }
 
-function scoreGovernance(evidence: RepoEvidence): CategoryScore {
+function scoreGovernance(evidence: RepoEvidence, config: RepOpticsConfig): CategoryScore {
+  const cfg = config.scoring.governance;
+  const p = config.personality.governance;
   let score = 0;
-  if (evidence.hasCodeowners) score += 40;
-  if (evidence.hasLicense) score += 30;
-  if (evidence.hasContributing) score += 30;
+  if (evidence.hasCodeowners) score += cfg.codeownersPoints;
+  if (evidence.hasLicense) score += cfg.licensePoints;
+  if (evidence.hasContributing) score += cfg.contributingPoints;
 
   const checks: CheckResult[] = [
     {
@@ -289,38 +314,40 @@ function scoreGovernance(evidence: RepoEvidence): CategoryScore {
   ];
 
   let message: string;
-  if (score >= 80) {
-    message = "Lawful Good.";
-  } else if (score >= 40) {
-    message = "Chaotic Neutral. Some rules exist.";
+  if (score >= cfg.greenThreshold) {
+    message = p.green;
+  } else if (score >= cfg.yellowThreshold) {
+    message = p.yellow;
   } else {
-    message = "Anarchy. Who owns this? Nobody knows.";
+    message = p.red;
   }
 
   return {
-    score: score >= 80 ? 100 : score >= 40 ? 50 : 0,
-    status: score >= 80 ? "green" : score >= 40 ? "yellow" : "red",
+    score: score >= cfg.greenThreshold ? cfg.greenScore : score >= cfg.yellowThreshold ? cfg.yellowScore : 0,
+    status: score >= cfg.greenThreshold ? "green" : score >= cfg.yellowThreshold ? "yellow" : "red",
     message,
     checks,
   };
 }
 
-function scoreDelivery(evidence: RepoEvidence): CategoryScore {
+function scoreDelivery(evidence: RepoEvidence, config: RepOpticsConfig): CategoryScore {
+  const cfg = config.scoring.delivery;
+  const p = config.personality.delivery;
   let score = 0;
-  if (evidence.hasWorkflows) score += 50;
-  if (evidence.hasPrTemplate) score += 30;
+  if (evidence.hasWorkflows) score += cfg.workflowsPoints;
+  if (evidence.hasPrTemplate) score += cfg.prTemplatePoints;
 
   if (evidence.prMetrics.mergedCount > 0) {
-    if (evidence.prMetrics.avgLeadTimeHours < 24) score += 20;
-    else if (evidence.prMetrics.avgLeadTimeHours < 72) score += 10;
+    if (evidence.prMetrics.avgLeadTimeHours < cfg.leadTimeFastHours) score += cfg.leadTimeFastPoints;
+    else if (evidence.prMetrics.avgLeadTimeHours < cfg.leadTimeMediumHours) score += cfg.leadTimeMediumPoints;
   } else {
-    score += 10;
+    score += cfg.noPrsBaselinePoints;
   }
 
   const leadTimeStatus: CheckStatus =
     evidence.prMetrics.mergedCount === 0 ? "partial" :
-    evidence.prMetrics.avgLeadTimeHours < 24 ? "done" :
-    evidence.prMetrics.avgLeadTimeHours < 72 ? "partial" : "not_done";
+    evidence.prMetrics.avgLeadTimeHours < cfg.leadTimeFastHours ? "done" :
+    evidence.prMetrics.avgLeadTimeHours < cfg.leadTimeMediumHours ? "partial" : "not_done";
 
   const checks: CheckResult[] = [
     {
@@ -353,25 +380,26 @@ function scoreDelivery(evidence: RepoEvidence): CategoryScore {
   ];
 
   let message: string;
-  if (score >= 90) {
-    message = "Automated bliss.";
-  } else if (score >= 50) {
-    message = "It builds, mostly.";
+  if (score >= cfg.greenThreshold) {
+    message = p.green;
+  } else if (score >= cfg.yellowThreshold) {
+    message = p.yellow;
   } else {
-    message = "Works on my machine?";
+    message = p.red;
   }
 
   return {
-    score: score >= 90 ? 100 : score >= 50 ? 60 : 0,
-    status: score >= 90 ? "green" : score >= 50 ? "yellow" : "red",
+    score: score >= cfg.greenThreshold ? cfg.greenScore : score >= cfg.yellowThreshold ? cfg.yellowScore : 0,
+    status: score >= cfg.greenThreshold ? "green" : score >= cfg.yellowThreshold ? "yellow" : "red",
     message,
     checks,
   };
 }
 
-function generateSummary(grade: string): string {
-  if (grade === "A") return "Ship it. This repo is a shining example of engineering discipline.";
-  if (grade === "B") return "Acceptable, but messy. A little spring cleaning wouldn't hurt.";
-  if (grade === "C") return "Technical Debt Factory. Proceed with caution.";
-  return "Burn it down. Or fix it. But probably burn it down.";
+function generateSummary(grade: string, config: RepOpticsConfig): string {
+  const s = config.personality.gradeSummaries;
+  if (grade === "A") return s.A;
+  if (grade === "B") return s.B;
+  if (grade === "C") return s.C;
+  return s.F;
 }

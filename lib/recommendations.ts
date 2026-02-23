@@ -1,4 +1,5 @@
 import { RepoEvidence } from "./scanner";
+import { RepOpticsConfig, DEFAULT_CONFIG } from "./config";
 
 export type Recommendation = {
   id: string;
@@ -12,7 +13,10 @@ export type Recommendation = {
   filePath: string;
 };
 
-export function generateRecommendations(evidence: RepoEvidence): Recommendation[] {
+export function generateRecommendations(
+  evidence: RepoEvidence,
+  config: RepOpticsConfig = DEFAULT_CONFIG
+): Recommendation[] {
   const recs: Recommendation[] = [];
 
   // Decisions
@@ -45,7 +49,7 @@ export function generateRecommendations(evidence: RepoEvidence): Recommendation[
       action: "Add a README.md with Install, Usage, and Contributing sections.",
       filePath: "README.md",
     });
-  } else if (evidence.readmeContent && evidence.readmeContent.length < 500) {
+  } else if (evidence.readmeContent && evidence.readmeContent.length < config.recommendations.readmeExpandMinChars) {
     recs.push({
       id: "readme-expand",
       category: "architecture",

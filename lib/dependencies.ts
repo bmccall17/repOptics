@@ -56,7 +56,10 @@ function getImpact(severity: Severity): string {
     }
 }
 
-export async function auditDependencies(packageJsonContent: string): Promise<DependencyReport> {
+export async function auditDependencies(
+  packageJsonContent: string,
+  limits?: { maxDeps?: number; timeoutMs?: number }
+): Promise<DependencyReport> {
   let pkg;
   try {
     pkg = JSON.parse(packageJsonContent);
@@ -68,15 +71,16 @@ export async function auditDependencies(packageJsonContent: string): Promise<Dep
   const deps = { ...pkg.dependencies, ...pkg.devDependencies };
   const audits: DependencyAudit[] = [];
 
-  // Limit to top 33 to avoid timeouts/rate limits
-  const entries = Object.entries(deps).slice(0, 33);
+  const maxDeps = limits?.maxDeps ?? 33;
+  const entries = Object.entries(deps).slice(0, maxDeps);
 
   // Create an array of promises
   const promises = entries.map(async ([name, version]) => {
       const v = version as string;
       try {
+          const timeoutMs = limits?.timeoutMs ?? 5000;
           const res = await fetch(`https://registry.npmjs.org/${name}/latest`, {
-            signal: AbortSignal.timeout(5000)
+            signal: AbortSignal.timeout(timeoutMs)
           });
           if (!res.ok) {
                audits.push({

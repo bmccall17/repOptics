@@ -1,5 +1,6 @@
 import { createOctokit } from "./github";
 import { auditDependencies, DependencyReport } from "./dependencies";
+import { RepOpticsConfig, DEFAULT_CONFIG } from "./config";
 
 export type FileNode = {
   path: string;
@@ -58,7 +59,8 @@ export type RepoEvidence = {
 export async function scanRepo(
   owner: string,
   repo: string,
-  token?: string
+  token?: string,
+  config: RepOpticsConfig = DEFAULT_CONFIG
 ): Promise<RepoEvidence> {
   console.log(`[Scanner] Starting scan for ${owner}/${repo}`);
   if (token) {
@@ -67,7 +69,7 @@ export async function scanRepo(
     console.log("[Scanner] No GITHUB_TOKEN provided, running unauthenticated (rate limits apply)");
   }
 
-  const octokit = createOctokit(token);
+  const octokit = createOctokit(token, config.scannerLimits.octokitTimeoutMs);
 
   // 1. Get the repository metadata
   console.log(`[Scanner] Fetching metadata for ${owner}/${repo}`);
@@ -181,7 +183,7 @@ export async function scanRepo(
 
   // 5. Deep Scan: Parse ADRs (Top 20)
   const parsedAdrs: AdrFile[] = [];
-  const adrsToScan = adrFiles.slice(0, 20);
+  const adrsToScan = adrFiles.slice(0, config.scannerLimits.maxAdrsToScan);
   
   if (adrsToScan.length > 0) {
     console.log(`[Scanner] Parsing ${adrsToScan.length} ADRs...`);
@@ -227,7 +229,7 @@ export async function scanRepo(
       owner,
       repo,
       state: "closed",
-      per_page: 20,
+      per_page: config.scannerLimits.maxPrsToFetch,
       sort: "updated",
       direction: "desc",
     });
@@ -266,7 +268,10 @@ export async function scanRepo(
 
       if ("content" in packageData) {
         const content = Buffer.from(packageData.content, "base64").toString("utf-8");
-        dependencyAudit = await auditDependencies(content);
+        dependencyAudit = await auditDependencies(content, {
+          maxDeps: config.scannerLimits.maxDepsToAudit,
+          timeoutMs: config.scannerLimits.depFetchTimeoutMs,
+        });
       }
     } catch (e) {
       console.error("[Scanner] Failed to audit dependencies", e);
