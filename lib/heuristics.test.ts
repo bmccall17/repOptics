@@ -14,6 +14,8 @@ describe("heuristics", () => {
     hasLicense: false,
     hasContributing: false,
     hasPrTemplate: false,
+    hasGovernance: false,
+    hasAgents: false,
     adrCount: 0,
     adrs: [],
     diagramCount: 0,
@@ -26,7 +28,18 @@ describe("heuristics", () => {
         outdatedCount: 0,
         majorCount: 0,
         minorCount: 0,
-        patchCount: 0
+        patchCount: 0,
+        totalDeps: 0
+    },
+    guardrails: {
+      hasBranchProtection: false,
+      requiresReviews: false,
+      requiredReviewers: 0,
+      requiresStatusChecks: false,
+      statusChecks: [],
+      hasDependabot: false,
+      hasSecretScanning: false,
+      hasCodeScanning: false,
     }
   };
 
@@ -62,7 +75,8 @@ describe("heuristics", () => {
           outdatedCount: 0,
           majorCount: 0,
           minorCount: 0,
-          patchCount: 0
+          patchCount: 0,
+          totalDeps: 0
       }
     };
 
@@ -109,7 +123,7 @@ describe("heuristics", () => {
         adrs: [{ date: "2024-01-01" } as AdrFile],
         diagramCount: 1,
         prMetrics: { mergedCount: 10, avgLeadTimeHours: 12 },
-        dependencies: { audits: [], outdatedCount: 0, majorCount: 0, minorCount: 0, patchCount: 0 },
+        dependencies: { audits: [], outdatedCount: 0, majorCount: 0, minorCount: 0, patchCount: 0, totalDeps: 0 },
       };
       const report = scoreRepo(perfectEvidence, strict);
       expect(report.grade).toBe("A");

@@ -10,7 +10,9 @@
       "Bash(comm:*)",
       "Bash(echo === $f ===:*)",
       "Bash(npx tsc:*)",
-      "Bash(head:*)"
+      "Bash(head:*)",
+      "Bash(npx vitest:*)",
+      "Bash(./node_modules/.bin/tsc:*)"
     ]
   }
 }
