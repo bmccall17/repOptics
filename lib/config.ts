@@ -116,6 +116,7 @@ export type RepOpticsConfig = {
 
   scannerLimits: {
     maxAdrsToScan: number;
+    maxDiagramsToScan: number;
     maxPrsToFetch: number;
     maxDepsToAudit: number;
     depFetchTimeoutMs: number;
@@ -232,6 +233,7 @@ export const DEFAULT_CONFIG: RepOpticsConfig = Object.freeze({
 
   scannerLimits: Object.freeze({
     maxAdrsToScan: 20,
+    maxDiagramsToScan: 10,
     maxPrsToFetch: 20,
     maxDepsToAudit: 33,
     depFetchTimeoutMs: 5000,

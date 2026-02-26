@@ -15,6 +15,12 @@ export type AdrFile = {
   date?: string;
 };
 
+export type DiagramFile = {
+  path: string;
+  format: string;
+  content?: string;
+};
+
 export type PrMetrics = {
   avgLeadTimeHours: number; // merged_at - created_at
   mergedCount: number;
@@ -51,6 +57,7 @@ export type RepoEvidence = {
   adrCount: number;
   adrs: AdrFile[];
   diagramCount: number;
+  diagrams: DiagramFile[];
   prMetrics: PrMetrics;
   dependencies: DependencyReport;
   guardrails: GuardrailsEvidence;
@@ -155,9 +162,10 @@ export async function scanRepo(
   );
   const adrCount = adrFiles.length;
 
-  const diagramCount = files.filter((f) =>
+  const diagramFiles = files.filter((f) =>
     /\.(puml|mermaid|drawio|excalidraw)$/i.test(f.path) || /docs\/diagrams\//i.test(f.path)
-  ).length;
+  );
+  const diagramCount = diagramFiles.length;
 
   // 4.1 Fetch additional content (Codeowners, Contributing, etc)
   let codeownersContent, contributingContent, governanceContent, agentsContent;
@@ -219,6 +227,40 @@ export async function scanRepo(
 
   // Sort ADRs by path or date to keep them in order
   parsedAdrs.sort((a, b) => a.path.localeCompare(b.path));
+
+  // 5b. Deep Scan: Fetch Diagram Content (Mermaid files only)
+  const parsedDiagrams: DiagramFile[] = [];
+  const diagramsToScan = diagramFiles.slice(0, config.scannerLimits.maxDiagramsToScan);
+
+  if (diagramsToScan.length > 0) {
+    console.log(`[Scanner] Fetching ${diagramsToScan.length} diagram files...`);
+  }
+
+  await Promise.all(diagramsToScan.map(async (file) => {
+    const ext = file.path.split(".").pop()?.toLowerCase() || "";
+    const format = ext === "mermaid" ? "mermaid" : ext;
+    const entry: DiagramFile = { path: file.path, format };
+
+    if (format === "mermaid") {
+      try {
+        const { data: contentData } = await octokit.rest.repos.getContent({
+          owner,
+          repo,
+          path: file.path,
+        });
+
+        if ("content" in contentData) {
+          entry.content = Buffer.from(contentData.content, "base64").toString("utf-8");
+        }
+      } catch (e) {
+        console.error(`[Scanner] Failed to fetch diagram ${file.path}`, e);
+      }
+    }
+
+    parsedDiagrams.push(entry);
+  }));
+
+  parsedDiagrams.sort((a, b) => a.path.localeCompare(b.path));
 
   // 6. Deep Scan: PR Metrics
   console.log(`[Scanner] Fetching PR metrics...`);
@@ -365,6 +407,7 @@ export async function scanRepo(
     adrCount,
     adrs: parsedAdrs,
     diagramCount,
+    diagrams: parsedDiagrams,
     prMetrics: {
         avgLeadTimeHours,
         mergedCount

@@ -19,6 +19,7 @@ describe("heuristics", () => {
     adrCount: 0,
     adrs: [],
     diagramCount: 0,
+    diagrams: [],
     prMetrics: {
       avgLeadTimeHours: 0,
       mergedCount: 0,

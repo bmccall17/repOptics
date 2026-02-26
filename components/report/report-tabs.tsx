@@ -4,7 +4,7 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ReactNode, useCallback } from "react";
 
-const TAB_KEYS = ["health", "insights", "governance", "dependencies"] as const;
+const TAB_KEYS = ["health", "insights", "governance", "dependencies", "diagrams"] as const;
 export type TabKey = (typeof TAB_KEYS)[number];
 
 interface ReportTabsProps {
@@ -12,6 +12,7 @@ interface ReportTabsProps {
   insightsContent: ReactNode;
   governanceContent: ReactNode;
   dependenciesContent: ReactNode;
+  diagramsContent: ReactNode;
 }
 
 export function ReportTabs({
@@ -19,6 +20,7 @@ export function ReportTabs({
   insightsContent,
   governanceContent,
   dependenciesContent,
+  diagramsContent,
 }: ReportTabsProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -43,12 +45,14 @@ export function ReportTabs({
         <TabsTrigger value="insights">Insights</TabsTrigger>
         <TabsTrigger value="governance">Governance</TabsTrigger>
         <TabsTrigger value="dependencies">Dependencies</TabsTrigger>
+        <TabsTrigger value="diagrams">Diagrams</TabsTrigger>
       </TabsList>
 
       <TabsContent value="health">{healthContent}</TabsContent>
       <TabsContent value="insights">{insightsContent}</TabsContent>
       <TabsContent value="governance">{governanceContent}</TabsContent>
       <TabsContent value="dependencies">{dependenciesContent}</TabsContent>
+      <TabsContent value="diagrams">{diagramsContent}</TabsContent>
     </Tabs>
   );
 }

@@ -14,6 +14,7 @@ import { HealthCheckPanel } from "@/components/report/health-check-panel";
 import { InsightsPanel } from "@/components/report/insights-panel";
 import { GovernancePanel } from "@/components/report/governance-panel";
 import { DependenciesPanel } from "@/components/report/dependencies-panel";
+import { DiagramsPanel } from "@/components/report/diagrams-panel";
 
 interface PageProps {
   params: Promise<{ slug: string[] }>;
@@ -133,6 +134,7 @@ export default async function ReportPage(props: PageProps) {
             }
             governanceContent={<GovernancePanel evidence={evidence} />}
             dependenciesContent={<DependenciesPanel evidence={evidence} />}
+            diagramsContent={<DiagramsPanel evidence={evidence} />}
           />
         </Suspense>
       </div>
