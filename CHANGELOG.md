@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2026-02-25
+
+### Added
+- **Tabbed Report Navigation**: Report page now uses 4 tabs (Health Check, Insights, Governance, Dependencies) instead of a single vertical scroll
+- **Progressive Disclosure**: Health Check categories and individual check items are collapsible; failed checks auto-expand for immediate visibility
+- **Interactive Category Cards**: Clicking a category card (Decisions, Architecture, etc.) navigates to the relevant tab with active ring highlight
+- **Bookmarkable Tabs**: Tab state syncs to URL search params (`?tab=health`) so links to specific sections are shareable
+- **Functional Export Report**: Export button opens a dialog with section checkboxes, Select All/Deselect All, and JSON or Markdown format toggle
+- **JSON Export**: Structured output optimized for AI agent re-import with metadata, section filtering, and clean schema
+- **Markdown Export**: Human-readable report with proper headings, tables, and code blocks
+- **UI Primitives**: New `Tabs` and `CollapsibleSection` components built with React context + Tailwind (no new dependencies)
+
+### Changed
+- `app/report/[...slug]/page.tsx`: Refactored from 659 lines to ~100 lines by extracting 8 component modules
+- `app/report/[...slug]/loading.tsx`: Updated skeleton to match new 5-column card + tab layout
+
+### New Files
+- `components/ui/tabs.tsx` — Tab primitives (Tabs, TabsList, TabsTrigger, TabsContent)
+- `components/ui/collapsible.tsx` — CollapsibleSection with animated chevron
+- `components/report/health-check-panel.tsx` — Collapsible health checklist with auto-expanding failures
+- `components/report/insights-panel.tsx` — Decision Optics + Delivery Velocity + Recommendations
+- `components/report/governance-panel.tsx` — Governance & Compliance + Guardrails & Security
+- `components/report/dependencies-panel.tsx` — Dependency Health + Repository Map
+- `components/report/report-tabs.tsx` — Tab orchestration with URL search param sync
+- `components/report/interactive-category-cards.tsx` — Clickable category cards with tab navigation
+- `components/report/export-dialog.tsx` — Export modal with section/format selection and blob download
+- `lib/report-export.ts` — Pure functions for JSON and Markdown export with section filtering
+
 ## [0.3.0] - 2026-01-28
 
 ### Added
