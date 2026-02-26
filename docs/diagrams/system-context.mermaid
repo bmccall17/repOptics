@@ -1,0 +1,13 @@
+C4Context
+    title System Context Diagram for repOptics
+
+    Person(user, "User", "PM, Tech Lead, or Developer checking repo hygiene and bootstrapping new projects.")
+
+    System(repOptics, "repOptics", "Next.js app hosted on Render. Two flows: Report Scanner grades repo health; Project Generator bootstraps new repos with best-practice scaffolding.")
+
+    System_Ext(github, "GitHub REST API", "Repo metadata, file tree, file content, pull requests, and branch protection via Octokit.")
+    System_Ext(npm, "npm Registry", "Package version lookups (registry.npmjs.org) for dependency freshness audit.")
+
+    Rel(user, repOptics, "Scans repos & generates projects", "HTTPS")
+    Rel(repOptics, github, "Reads repo data", "HTTPS / REST")
+    Rel(repOptics, npm, "Fetches latest package versions", "HTTPS")

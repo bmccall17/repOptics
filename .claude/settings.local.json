@@ -12,7 +12,9 @@
       "Bash(npx tsc:*)",
       "Bash(head:*)",
       "Bash(npx vitest:*)",
-      "Bash(./node_modules/.bin/tsc:*)"
+      "Bash(./node_modules/.bin/tsc:*)",
+      "Bash(ls:*)",
+      "Bash(npx:*)"
     ]
   }
 }

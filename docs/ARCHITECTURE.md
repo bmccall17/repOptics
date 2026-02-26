@@ -1,5 +1,7 @@
 # Architecture
 
+> **Canonical diagrams live in [`docs/diagrams/`](diagrams/).** The standalone `.mermaid` files there are the source of truth — the inline diagrams below are simplified snapshots kept for quick reference.
+
 ## System Context
 
 This diagram illustrates the high-level context of the **repOptics** system.

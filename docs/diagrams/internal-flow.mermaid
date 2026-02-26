@@ -1,0 +1,48 @@
+graph TD
+    subgraph Client ["Browser (Client-Side)"]
+        User((User))
+        UI[Web Dashboard]
+        GenUI[Generator Wizard]
+    end
+
+    subgraph Server ["Next.js Server (Render)"]
+        Scanner[Scanner Orchestrator<br/><i>lib/scanner.ts</i>]
+        Heuristics[Heuristics Engine<br/><i>lib/heuristics.ts</i>]
+        Recs[Recommendations Engine<br/><i>lib/recommendations.ts</i>]
+        DepAudit[Dependency Auditor<br/><i>lib/dependencies.ts</i>]
+        Report[Report Page<br/><i>app/report/.../page.tsx</i>]
+    end
+
+    subgraph External [External Systems]
+        GitHub[GitHub REST API<br/><i>Octokit</i>]
+        NPM[npm Registry<br/><i>registry.npmjs.org</i>]
+    end
+
+    subgraph ClientGen ["Browser (Client-Side Generator)"]
+        Questions[Decision Questions<br/><i>lib/questions.ts</i>]
+        Templates[File Templates<br/><i>lib/templates.ts</i>]
+        Handoff[Handoff Doc Generator<br/><i>lib/handoff.ts</i>]
+        ZIP[JSZip Bundle]
+    end
+
+    %% Report Scanner Flow
+    User -->|"Enter owner/repo"| UI
+    UI -->|"Server Action"| Scanner
+    Scanner -->|"Fetch metadata, file tree,<br/>PRs, branch protection"| GitHub
+    Scanner -->|"Fetch package.json content"| GitHub
+    Scanner -->|"Audit dep versions"| DepAudit
+    DepAudit -->|"GET /package/latest"| NPM
+    Scanner -->|"Evidence bundle"| Heuristics
+    Heuristics -->|"Scored report"| Report
+    Scanner -->|"Evidence bundle"| Recs
+    Recs -->|"Prioritized recommendations"| Report
+    Report -->|"Rendered HTML + Export"| UI
+
+    %% Generator Flow
+    User -->|"Answer decision questions"| GenUI
+    GenUI --> Questions
+    Questions -->|"Derive module selections"| Templates
+    Templates --> ZIP
+    Questions -->|"Build handoff context"| Handoff
+    Handoff --> ZIP
+    ZIP -->|"Download .zip"| User
