@@ -1,5 +1,5 @@
 import { createOctokit } from "./github";
-import { auditDependencies, DependencyReport } from "./dependencies";
+import { auditDependencies, auditVulnerabilities, emptyVulnerabilityReport, DependencyReport } from "./dependencies";
 import { RepOpticsConfig, DEFAULT_CONFIG } from "./config";
 
 export type FileNode = {
@@ -35,6 +35,8 @@ export type GuardrailsEvidence = {
   hasDependabot: boolean;
   hasSecretScanning: boolean;
   hasCodeScanning: boolean;
+  hasSnyk: boolean;
+  snykDetails: string[];
 };
 
 export type RepoEvidence = {
@@ -297,7 +299,8 @@ export async function scanRepo(
 
   // 7. Dependency Audit
   console.log(`[Scanner] Auditing dependencies...`);
-  let dependencyAudit: DependencyReport = { audits: [], outdatedCount: 0, majorCount: 0, minorCount: 0, patchCount: 0, totalDeps: 0 };
+  let dependencyAudit: DependencyReport = { audits: [], outdatedCount: 0, majorCount: 0, minorCount: 0, patchCount: 0, totalDeps: 0, vulnerabilities: emptyVulnerabilityReport() };
+  let packageJsonContent: string | undefined;
   const packageJsonPath = files.find((f) => f.path === "package.json")?.path;
 
   if (packageJsonPath) {
@@ -309,11 +312,15 @@ export async function scanRepo(
       });
 
       if ("content" in packageData) {
-        const content = Buffer.from(packageData.content, "base64").toString("utf-8");
-        dependencyAudit = await auditDependencies(content, {
-          maxDeps: config.scannerLimits.maxDepsToAudit,
-          timeoutMs: config.scannerLimits.depFetchTimeoutMs,
-        });
+        packageJsonContent = Buffer.from(packageData.content, "base64").toString("utf-8");
+        const [freshness, vulns] = await Promise.all([
+          auditDependencies(packageJsonContent, {
+            maxDeps: config.scannerLimits.maxDepsToAudit,
+            timeoutMs: config.scannerLimits.depFetchTimeoutMs,
+          }),
+          auditVulnerabilities(packageJsonContent),
+        ]);
+        dependencyAudit = { ...freshness, vulnerabilities: vulns };
       }
     } catch (e) {
       console.error("[Scanner] Failed to audit dependencies", e);
@@ -331,6 +338,8 @@ export async function scanRepo(
     hasDependabot: false,
     hasSecretScanning: false,
     hasCodeScanning: false,
+    hasSnyk: false,
+    snykDetails: [],
   };
 
   // Check for Dependabot config file
@@ -343,6 +352,31 @@ export async function scanRepo(
     f.path.startsWith(".github/workflows/") &&
     (f.path.includes("codeql") || f.path.includes("code-scanning"))
   );
+
+  // Check for Snyk presence
+  const snykDetails: string[] = [];
+  if (files.some((f) => f.path === ".snyk")) {
+    snykDetails.push(".snyk policy file");
+  }
+  if (files.some((f) =>
+    f.path.startsWith(".github/workflows/") &&
+    f.path.toLowerCase().includes("snyk")
+  )) {
+    snykDetails.push("Snyk workflow");
+  }
+  if (packageJsonContent) {
+    try {
+      const pkg = JSON.parse(packageJsonContent);
+      const devDeps = pkg.devDependencies || {};
+      if (Object.keys(devDeps).some((d) => d.includes("snyk"))) {
+        snykDetails.push("snyk in devDependencies");
+      }
+    } catch {
+      // ignore parse errors - already handled elsewhere
+    }
+  }
+  guardrails.hasSnyk = snykDetails.length > 0;
+  guardrails.snykDetails = snykDetails;
 
   // Try to fetch branch protection rules (requires admin access or token)
   if (token) {

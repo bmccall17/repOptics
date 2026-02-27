@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { scoreRepo, Report, CategoryScore } from "./heuristics";
 import { RepoEvidence, FileNode, AdrFile, PrMetrics } from "./scanner";
 import { resolveConfig } from "./config";
+import { emptyVulnerabilityReport } from "./dependencies";
 
 describe("heuristics", () => {
   const emptyEvidence: RepoEvidence = {
@@ -30,7 +31,8 @@ describe("heuristics", () => {
         majorCount: 0,
         minorCount: 0,
         patchCount: 0,
-        totalDeps: 0
+        totalDeps: 0,
+        vulnerabilities: emptyVulnerabilityReport(),
     },
     guardrails: {
       hasBranchProtection: false,
@@ -41,6 +43,8 @@ describe("heuristics", () => {
       hasDependabot: false,
       hasSecretScanning: false,
       hasCodeScanning: false,
+      hasSnyk: false,
+      snykDetails: [],
     }
   };
 
@@ -77,7 +81,8 @@ describe("heuristics", () => {
           majorCount: 0,
           minorCount: 0,
           patchCount: 0,
-          totalDeps: 0
+          totalDeps: 0,
+          vulnerabilities: emptyVulnerabilityReport(),
       }
     };
 
@@ -124,7 +129,7 @@ describe("heuristics", () => {
         adrs: [{ date: "2024-01-01" } as AdrFile],
         diagramCount: 1,
         prMetrics: { mergedCount: 10, avgLeadTimeHours: 12 },
-        dependencies: { audits: [], outdatedCount: 0, majorCount: 0, minorCount: 0, patchCount: 0, totalDeps: 0 },
+        dependencies: { audits: [], outdatedCount: 0, majorCount: 0, minorCount: 0, patchCount: 0, totalDeps: 0, vulnerabilities: emptyVulnerabilityReport() },
       };
       const report = scoreRepo(perfectEvidence, strict);
       expect(report.grade).toBe("A");

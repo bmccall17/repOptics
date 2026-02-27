@@ -81,6 +81,11 @@ function scoreDependencies(evidence: RepoEvidence, config: RepOpticsConfig): Cat
   if (majorCount > 0) score -= majorCount * cfg.majorPenalty;
   if (minorCount > 0) score -= minorCount * cfg.minorPenalty;
 
+  const vulns = evidence.dependencies.vulnerabilities;
+  if (vulns.critical > 0) score -= vulns.critical * cfg.criticalVulnPenalty;
+  if (vulns.high > 0) score -= vulns.high * cfg.highVulnPenalty;
+  if (vulns.moderate > 0) score -= vulns.moderate * cfg.moderateVulnPenalty;
+
   if (score < 0) score = 0;
 
   const checks: CheckResult[] = [
@@ -119,6 +124,17 @@ function scoreDependencies(evidence: RepoEvidence, config: RepOpticsConfig): Cat
       impact: "Stale dependencies accumulate tech debt and make future updates harder.",
       fix: "Regularly run `npm outdated` and update dependencies incrementally.",
       details: patchCount > 0 ? `${patchCount} patch update${patchCount !== 1 ? "s" : ""} available` : undefined,
+    },
+    {
+      id: "deps-no-vulns",
+      name: "No known vulnerabilities",
+      status: vulns.total === 0 ? "done" : vulns.critical === 0 && vulns.high === 0 ? "partial" : "not_done",
+      whyItMatters: "Known vulnerabilities in dependencies can be exploited to compromise your application.",
+      impact: "Unpatched vulnerabilities are a leading cause of security breaches.",
+      fix: "Run `npm audit fix` to auto-fix where possible, or update vulnerable packages manually.",
+      details: vulns.total > 0
+        ? `${vulns.total} vulnerabilit${vulns.total !== 1 ? "ies" : "y"} (${vulns.critical} critical, ${vulns.high} high)`
+        : undefined,
     },
   ];
 

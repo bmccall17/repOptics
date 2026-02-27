@@ -1,6 +1,6 @@
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Package, Folder, CheckCircle } from "lucide-react";
+import { Package, Folder, CheckCircle, ShieldAlert } from "lucide-react";
 import type { RepoEvidence } from "@/lib/scanner";
 
 interface DependenciesPanelProps {
@@ -39,6 +39,49 @@ export function DependenciesPanel({ evidence }: DependenciesPanelProps) {
                 <div className="text-xs text-green-400 uppercase tracking-wider">Up to Date</div>
               </div>
             </div>
+
+            {/* Vulnerability Summary */}
+            {evidence.dependencies.vulnerabilities.total > 0 ? (
+              <div className="p-4 rounded-lg border border-red-900/50 bg-red-950/20">
+                <div className="flex items-center gap-2 mb-3">
+                  <ShieldAlert className="h-5 w-5 text-red-400" />
+                  <h3 className="text-sm font-medium text-red-400">
+                    {evidence.dependencies.vulnerabilities.total} Known Vulnerabilit{evidence.dependencies.vulnerabilities.total !== 1 ? "ies" : "y"}
+                  </h3>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {evidence.dependencies.vulnerabilities.critical > 0 && (
+                    <div className="text-center p-2 rounded bg-red-950/40 border border-red-900/30">
+                      <div className="text-lg font-bold text-red-400">{evidence.dependencies.vulnerabilities.critical}</div>
+                      <div className="text-xs text-red-500 uppercase">Critical</div>
+                    </div>
+                  )}
+                  {evidence.dependencies.vulnerabilities.high > 0 && (
+                    <div className="text-center p-2 rounded bg-orange-950/40 border border-orange-900/30">
+                      <div className="text-lg font-bold text-orange-400">{evidence.dependencies.vulnerabilities.high}</div>
+                      <div className="text-xs text-orange-500 uppercase">High</div>
+                    </div>
+                  )}
+                  {evidence.dependencies.vulnerabilities.moderate > 0 && (
+                    <div className="text-center p-2 rounded bg-yellow-950/40 border border-yellow-900/30">
+                      <div className="text-lg font-bold text-yellow-400">{evidence.dependencies.vulnerabilities.moderate}</div>
+                      <div className="text-xs text-yellow-500 uppercase">Moderate</div>
+                    </div>
+                  )}
+                  {evidence.dependencies.vulnerabilities.low > 0 && (
+                    <div className="text-center p-2 rounded bg-zinc-800/40 border border-zinc-700/30">
+                      <div className="text-lg font-bold text-zinc-300">{evidence.dependencies.vulnerabilities.low}</div>
+                      <div className="text-xs text-zinc-500 uppercase">Low</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="p-3 rounded-lg border border-green-900/50 bg-green-950/20 flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500" />
+                <span className="text-sm text-green-400">No known vulnerabilities detected.</span>
+              </div>
+            )}
 
             {evidence.dependencies.outdatedCount > 0 ? (
               <div className="rounded-md border border-zinc-800 overflow-hidden">

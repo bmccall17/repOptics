@@ -73,6 +73,9 @@ export type RepOpticsConfig = {
     dependencies: {
       majorPenalty: number;
       minorPenalty: number;
+      criticalVulnPenalty: number;
+      highVulnPenalty: number;
+      moderateVulnPenalty: number;
       greenThreshold: number;
       yellowThreshold: number;
       minorPartialThreshold: number;
@@ -190,6 +193,9 @@ export const DEFAULT_CONFIG: RepOpticsConfig = Object.freeze({
     dependencies: Object.freeze({
       majorPenalty: 15,
       minorPenalty: 5,
+      criticalVulnPenalty: 25,
+      highVulnPenalty: 15,
+      moderateVulnPenalty: 5,
       greenThreshold: 90,
       yellowThreshold: 60,
       minorPartialThreshold: 3,

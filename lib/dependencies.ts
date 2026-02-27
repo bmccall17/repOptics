@@ -8,6 +8,27 @@ export type DependencyAudit = {
   impact: string;
 };
 
+export type VulnSeverity = "critical" | "high" | "moderate" | "low" | "info";
+
+export type VulnerabilityAdvisory = {
+  id: number;
+  title: string;
+  severity: VulnSeverity;
+  url: string;
+  moduleName: string;
+  vulnerableVersions: string;
+};
+
+export type VulnerabilityReport = {
+  critical: number;
+  high: number;
+  moderate: number;
+  low: number;
+  info: number;
+  total: number;
+  advisories: VulnerabilityAdvisory[];
+};
+
 export type DependencyReport = {
   audits: DependencyAudit[];
   outdatedCount: number;
@@ -15,6 +36,7 @@ export type DependencyReport = {
   minorCount: number;
   patchCount: number;
   totalDeps: number;
+  vulnerabilities: VulnerabilityReport;
 };
 
 // Helper to remove ^ or ~ from version string
@@ -65,7 +87,7 @@ export async function auditDependencies(
     pkg = JSON.parse(packageJsonContent);
   } catch (e) {
     console.error("Failed to parse package.json", e);
-    return { audits: [], outdatedCount: 0, majorCount: 0, minorCount: 0, patchCount: 0, totalDeps: 0 };
+    return { audits: [], outdatedCount: 0, majorCount: 0, minorCount: 0, patchCount: 0, totalDeps: 0, vulnerabilities: emptyVulnerabilityReport() };
   }
 
   const deps = { ...pkg.dependencies, ...pkg.devDependencies };
@@ -131,6 +153,84 @@ export async function auditDependencies(
       majorCount,
       minorCount,
       patchCount,
-      totalDeps: Object.keys(deps).length
+      totalDeps: Object.keys(deps).length,
+      vulnerabilities: emptyVulnerabilityReport(),
   };
+}
+
+export function emptyVulnerabilityReport(): VulnerabilityReport {
+  return { critical: 0, high: 0, moderate: 0, low: 0, info: 0, total: 0, advisories: [] };
+}
+
+export async function auditVulnerabilities(
+  packageJsonContent: string,
+  timeoutMs = 10000
+): Promise<VulnerabilityReport> {
+  const report = emptyVulnerabilityReport();
+
+  let pkg;
+  try {
+    pkg = JSON.parse(packageJsonContent);
+  } catch {
+    return report;
+  }
+
+  const allDeps: Record<string, string[]> = {};
+  for (const [name, version] of Object.entries({
+    ...pkg.dependencies,
+    ...pkg.devDependencies,
+  })) {
+    const cleaned = cleanVersion(version as string);
+    if (cleaned) {
+      allDeps[name] = [cleaned];
+    }
+  }
+
+  if (Object.keys(allDeps).length === 0) return report;
+
+  try {
+    const res = await fetch(
+      "https://registry.npmjs.org/-/npm/v1/security/advisories/bulk",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(allDeps),
+        signal: AbortSignal.timeout(timeoutMs),
+      }
+    );
+
+    if (!res.ok) return report;
+
+    const data = await res.json();
+
+    for (const [, advisory] of Object.entries(data)) {
+      const a = advisory as {
+        id: number;
+        title: string;
+        severity: string;
+        url: string;
+        module_name: string;
+        vulnerable_versions: string;
+      };
+
+      const severity = a.severity as VulnSeverity;
+      if (severity in report && typeof report[severity] === "number") {
+        report[severity]++;
+      }
+      report.total++;
+
+      report.advisories.push({
+        id: a.id,
+        title: a.title,
+        severity,
+        url: a.url,
+        moduleName: a.module_name,
+        vulnerableVersions: a.vulnerable_versions,
+      });
+    }
+  } catch {
+    // Graceful degradation: return empty report on network/parse failure
+  }
+
+  return report;
 }

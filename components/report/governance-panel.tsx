@@ -162,6 +162,11 @@ export function GovernancePanel({ evidence }: GovernancePanelProps) {
               enabled={evidence.guardrails.hasCodeScanning}
               details={evidence.guardrails.hasCodeScanning ? "Workflow found" : "Not found"}
             />
+            <GuardrailItem
+              label="Snyk"
+              enabled={evidence.guardrails.hasSnyk}
+              details={evidence.guardrails.hasSnyk ? evidence.guardrails.snykDetails.join(", ") : "Not found"}
+            />
           </div>
 
           {evidence.guardrails.statusChecks.length > 0 && (

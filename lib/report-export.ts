@@ -124,6 +124,20 @@ export function exportReportAsJson(
           severity: a.severity,
           impact: a.impact,
         })),
+      vulnerabilities: {
+        critical: evidence.dependencies.vulnerabilities.critical,
+        high: evidence.dependencies.vulnerabilities.high,
+        moderate: evidence.dependencies.vulnerabilities.moderate,
+        low: evidence.dependencies.vulnerabilities.low,
+        total: evidence.dependencies.vulnerabilities.total,
+        advisories: evidence.dependencies.vulnerabilities.advisories.map((a) => ({
+          id: a.id,
+          title: a.title,
+          severity: a.severity,
+          url: a.url,
+          moduleName: a.moduleName,
+        })),
+      },
     };
   }
 
@@ -234,6 +248,7 @@ export function exportReportAsMarkdown(
     lines.push(`- Dependabot: ${g.hasDependabot ? "Configured" : "Not found"}`);
     lines.push(`- Secret Scanning: ${g.hasSecretScanning ? "Enabled" : "Not detected"}`);
     lines.push(`- Code Scanning: ${g.hasCodeScanning ? "Workflow found" : "Not found"}`);
+    lines.push(`- Snyk: ${g.hasSnyk ? g.snykDetails.join(", ") : "Not found"}`);
     lines.push("");
   }
 
@@ -251,6 +266,22 @@ export function exportReportAsMarkdown(
         lines.push(`| ${a.package} | ${a.currentVersion} | ${a.latestVersion} | ${a.severity} |`);
       }
       lines.push("");
+    }
+
+    const v = d.vulnerabilities;
+    if (v.total > 0) {
+      lines.push("### Vulnerabilities");
+      lines.push("");
+      lines.push(`**${v.total}** known vulnerabilit${v.total !== 1 ? "ies" : "y"}: ${v.critical} critical, ${v.high} high, ${v.moderate} moderate, ${v.low} low`);
+      lines.push("");
+      if (v.advisories.length > 0) {
+        lines.push("| Advisory | Module | Severity | Link |");
+        lines.push("|----------|--------|----------|------|");
+        for (const a of v.advisories) {
+          lines.push(`| ${a.title} | ${a.moduleName} | ${a.severity} | [${a.id}](${a.url}) |`);
+        }
+        lines.push("");
+      }
     }
   }
 
