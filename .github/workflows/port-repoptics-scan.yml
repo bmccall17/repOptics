@@ -12,11 +12,12 @@ on:
         default: "bmccall17"
       port_run_id:
         description: "Port action run ID for callback"
-        required: false
+        required: true
 
 jobs:
   scan:
     runs-on: ubuntu-latest
+    timeout-minutes: 15  # ✅ Fail after 15 minutes instead of hanging
     env:
       PORT_CLIENT_ID: ${{ secrets.PORT_CLIENT_ID }}
       PORT_CLIENT_SECRET: ${{ secrets.PORT_CLIENT_SECRET }}
@@ -43,7 +44,7 @@ jobs:
           echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
 
       - name: Report action in-progress to Port
-        if: inputs.port_run_id != ''
+        # manually commented out:: if: inputs.port_run_id != ''
         env:
           PORT_TOKEN: ${{ steps.port_auth.outputs.token }}
         run: |
@@ -54,6 +55,7 @@ jobs:
 
       - name: Run repOptics scanner
         id: scan
+        continue-on-error: true  # ✅ Don't fail the workflow immediately
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
         run: |
@@ -103,7 +105,7 @@ jobs:
               }')" | jq .
 
       - name: Report action success to Port
-        if: inputs.port_run_id != '' && success()
+        # manually commented out:: if: inputs.port_run_id != '' && success()
         env:
           PORT_TOKEN: ${{ steps.port_auth.outputs.token }}
         run: |
@@ -113,7 +115,7 @@ jobs:
             -d "{\"status\": \"SUCCESS\", \"message\": {\"run_status\": \"Scan complete! ${{ inputs.owner }}/${{ inputs.repo }} scored ${{ steps.scan.outputs.grade }} (${{ steps.scan.outputs.totalScore }}/100)\"}}"
 
       - name: Report action failure to Port
-        if: inputs.port_run_id != '' && failure()
+        # manually commented out:: if: inputs.port_run_id != '' && failure()
         env:
           PORT_TOKEN: ${{ steps.port_auth.outputs.token }}
         run: |
