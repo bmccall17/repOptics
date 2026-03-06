@@ -3,21 +3,107 @@ name: Port.io Ocean Sync
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 6 * * *" # Daily at 6am UTC
+    - cron: "0 6 * * *"
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+    env:
+      PORT_CLIENT_ID: ${{ secrets.PORT_CLIENT_ID }}
+      PORT_CLIENT_SECRET: ${{ secrets.PORT_CLIENT_SECRET }}
+      GH_PAT: ${{ secrets.GH_PAT }}
+      PORT_BASE_URL: https://api.us.getport.io
     steps:
-      - name: Sync GitHub repos to Port.io
-        uses: port-labs/ocean-sail@v1
-        with:
-          type: github
-          port_client_id: ${{ secrets.PORT_CLIENT_ID }}
-          port_client_secret: ${{ secrets.PORT_CLIENT_SECRET }}
-          port_base_url: https://api.us.getport.io
-          config: |
-            {
-              "token": "${{ secrets.GH_PAT }}",
-              "organization": "bmccall17"
-            }
+      - name: Get Port access token
+        id: port_auth
+        run: |
+          TOKEN=$(curl -s -X POST "$PORT_BASE_URL/v1/auth/access_token" \
+            -H "Content-Type: application/json" \
+            -d "{\"clientId\":\"$PORT_CLIENT_ID\",\"clientSecret\":\"$PORT_CLIENT_SECRET\"}" \
+            | jq -r '.accessToken')
+          echo "::add-mask::$TOKEN"
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure githubRepository blueprint exists
+        env:
+          PORT_TOKEN: ${{ steps.port_auth.outputs.token }}
+        run: |
+          curl -s -X POST "$PORT_BASE_URL/v1/blueprints" \
+            -H "Authorization: Bearer $PORT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "identifier": "githubRepository",
+              "title": "GitHub Repository",
+              "icon": "Github",
+              "schema": {
+                "properties": {
+                  "url": { "type": "string", "format": "url", "title": "Repository URL" },
+                  "language": { "type": "string", "title": "Primary Language" },
+                  "defaultBranch": { "type": "string", "title": "Default Branch" },
+                  "readme": { "type": "boolean", "title": "Has README" },
+                  "openIssues": { "type": "number", "title": "Open Issues" },
+                  "stars": { "type": "number", "title": "Stars" },
+                  "description": { "type": "string", "title": "Description" },
+                  "lastPush": { "type": "string", "format": "date-time", "title": "Last Push" }
+                }
+              }
+            }' || true
+
+      - name: Fetch repos and upsert to Port
+        env:
+          PORT_TOKEN: ${{ steps.port_auth.outputs.token }}
+        run: |
+          REPOS=$(curl -s -H "Authorization: token $GH_PAT" \
+            "https://api.github.com/users/bmccall17/repos?per_page=100&sort=updated")
+
+          echo "$REPOS" | jq -c '.[]' | while read -r repo; do
+            NAME=$(echo "$repo" | jq -r '.full_name')
+            IDENTIFIER=$(echo "$NAME" | tr '/' '_')
+            TITLE=$(echo "$repo" | jq -r '.name')
+            URL=$(echo "$repo" | jq -r '.html_url')
+            LANG=$(echo "$repo" | jq -r '.language // "Unknown"')
+            BRANCH=$(echo "$repo" | jq -r '.default_branch')
+            ISSUES=$(echo "$repo" | jq -r '.open_issues_count')
+            STARS=$(echo "$repo" | jq -r '.stargazers_count')
+            DESC=$(echo "$repo" | jq -r '.description // ""')
+            PUSHED=$(echo "$repo" | jq -r '.pushed_at')
+
+            # Check if repo has a README
+            README_CHECK=$(curl -s -o /dev/null -w "%{http_code}" \
+              -H "Authorization: token $GH_PAT" \
+              "https://api.github.com/repos/$NAME/readme")
+            HAS_README=false
+            if [ "$README_CHECK" = "200" ]; then HAS_README=true; fi
+
+            echo "Upserting $NAME..."
+            curl -s -X POST "$PORT_BASE_URL/v1/blueprints/githubRepository/entities?upsert=true&merge=true" \
+              -H "Authorization: Bearer $PORT_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "$(jq -n \
+                --arg id "$IDENTIFIER" \
+                --arg title "$TITLE" \
+                --arg url "$URL" \
+                --arg lang "$LANG" \
+                --arg branch "$BRANCH" \
+                --argjson readme "$HAS_README" \
+                --argjson issues "$ISSUES" \
+                --argjson stars "$STARS" \
+                --arg desc "$DESC" \
+                --arg pushed "$PUSHED" \
+                '{
+                  identifier: $id,
+                  title: $title,
+                  properties: {
+                    url: $url,
+                    language: $lang,
+                    defaultBranch: $branch,
+                    readme: $readme,
+                    openIssues: $issues,
+                    stars: $stars,
+                    description: $desc,
+                    lastPush: $pushed
+                  }
+                }')" | jq -r '.ok // .message'
+          done
+
+          echo "Sync complete!"
