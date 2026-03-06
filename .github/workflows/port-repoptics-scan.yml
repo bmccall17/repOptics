@@ -74,7 +74,7 @@ jobs:
         env:
           PORT_TOKEN: ${{ steps.port_auth.outputs.token }}
         run: |
-          IDENTIFIER="${{ inputs.owner }}_${{ inputs.repo }}"
+          IDENTIFIER="${{ inputs.repo }}"
           curl -s -X POST "$PORT_BASE_URL/v1/blueprints/githubRepository/entities?upsert=true&merge=true" \
             -H "Authorization: Bearer $PORT_TOKEN" \
             -H "Content-Type: application/json" \
