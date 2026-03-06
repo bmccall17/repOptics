@@ -54,7 +54,7 @@ jobs:
           clientSecret: ${{ secrets.PORT_CLIENT_SECRET }}
           baseUrl: https://api.getport.io
           operation: UPSERT
-          identifier: ${{ inputs.repo }}
+          identifier: ${{ inputs.owner }}/${{ inputs.repo }}
           blueprint: githubRepository
           properties: |
             {

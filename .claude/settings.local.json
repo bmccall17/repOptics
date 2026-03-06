@@ -21,7 +21,8 @@
       "mcp__Snyk__snyk_code_scan",
       "mcp__Snyk__snyk_auth",
       "Bash(git config:*)",
-      "Bash(git fetch:*)"
+      "Bash(git fetch:*)",
+      "Bash(gh api:*)"
     ]
   }
 }

@@ -67,7 +67,7 @@ jobs:
 
           echo "$REPOS" | jq -c '.[]' | while read -r repo; do
             NAME=$(echo "$repo" | jq -r '.full_name')
-            IDENTIFIER=$(echo "$repo" | jq -r '.name')
+            IDENTIFIER=$(echo "$repo" | jq -r '.full_name')
             TITLE=$(echo "$repo" | jq -r '.name')
             URL=$(echo "$repo" | jq -r '.html_url')
             LANG=$(echo "$repo" | jq -r '.language // "Unknown"')
@@ -132,7 +132,7 @@ jobs:
             PROJECT_NAME=$(echo "$project" | jq -r '.attributes.name')
             # Snyk project names: "org/repo:path/to/manifest" — extract just repo name
             REPO_FULL=$(echo "$PROJECT_NAME" | cut -d':' -f1)
-            IDENTIFIER=$(echo "$REPO_FULL" | cut -d'/' -f2)
+            IDENTIFIER="$REPO_FULL"
 
             CRITICAL=$(echo "$project" | jq -r '.attributes.issue_counts_by_severity.critical // 0')
             HIGH=$(echo "$project" | jq -r '.attributes.issue_counts_by_severity.high // 0')
