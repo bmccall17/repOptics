@@ -18,12 +18,19 @@ jobs:
   scan:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      PORT_CLIENT_ID: ${{ secrets.PORT_CLIENT_ID }}
-      PORT_CLIENT_SECRET: ${{ secrets.PORT_CLIENT_SECRET }}
-      PORT_BASE_URL: https://api.getport.io
     steps:
       - uses: actions/checkout@v4
+
+      - name: Report to Port - Starting
+        uses: port-labs/port-github-action@v1
+        with:
+          clientId: ${{ secrets.PORT_CLIENT_ID }}
+          clientSecret: ${{ secrets.PORT_CLIENT_SECRET }}
+          baseUrl: https://api.getport.io
+          operation: PATCH_RUN
+          runId: ${{ inputs.port_run_id }}
+          status: IN_PROGRESS
+          logMessage: "🔍 Starting repOptics scan for ${{ inputs.owner }}/${{ inputs.repo }}..."
 
       - name: Use Node.js
         uses: actions/setup-node@v4
@@ -33,65 +40,13 @@ jobs:
 
       - run: npm ci
 
-      - name: Get Port access token
-        id: port_auth
-        run: |
-          echo "🔐 Authenticating with Port..."
-          RESPONSE=$(curl -s -w "
-%{http_code}" -X POST "$PORT_BASE_URL/v1/auth/access_token" \
-            -H "Content-Type: application/json" \
-            -d "{\"clientId\":\"$PORT_CLIENT_ID\",\"clientSecret\":\"$PORT_CLIENT_SECRET\"}")
-          
-          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
-          
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "❌ Failed to authenticate with Port. HTTP $HTTP_CODE"
-            echo "Response: $BODY"
-            exit 1
-          fi
-          
-          TOKEN=$(echo "$BODY" | jq -r '.accessToken')
-          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
-            echo "❌ Failed to extract access token"
-            exit 1
-          fi
-          
-          echo "✅ Successfully authenticated with Port"
-          echo "::add-mask::$TOKEN"
-          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
-
-      - name: Report action in-progress to Port
-        env:
-          PORT_TOKEN: ${{ steps.port_auth.outputs.token }}
-        run: |
-          echo "📡 Updating Port action status to IN_PROGRESS..."
-          RESPONSE=$(curl -s -w "
-%{http_code}" -X PATCH "$PORT_BASE_URL/v1/actions/runs/${{ inputs.port_run_id }}" \
-            -H "Authorization: Bearer $PORT_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d '{"status": "IN_PROGRESS", "message": {"run_status": "Scanning ${{ inputs.owner }}/${{ inputs.repo }}..."}}')
-          
-          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
-          
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "⚠️ Failed to update Port status. HTTP $HTTP_CODE"
-            echo "Response: $BODY"
-            echo "Continuing anyway..."
-          else
-            echo "✅ Port status updated to IN_PROGRESS"
-          fi
-
       - name: Run repOptics scanner
         id: scan
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          echo "🔍 Running repOptics scan..."
           npx tsx scripts/scan-for-port.ts "${{ inputs.owner }}" "${{ inputs.repo }}" > /tmp/report.json
-          
-          echo "📊 Scan results:"
+          echo "Scan output:"
           jq -r '.grade + " (" + (.totalScore|tostring) + "/100)"' /tmp/report.json
 
           # Extract values for Port
@@ -104,91 +59,46 @@ jobs:
           echo "dependencies=$(jq -r '.categories.dependencies.score' /tmp/report.json)" >> "$GITHUB_OUTPUT"
 
       - name: Update Port entity with scan results
-        env:
-          PORT_TOKEN: ${{ steps.port_auth.outputs.token }}
-        run: |
-          echo "📝 Updating Port entity with scan results..."
-          IDENTIFIER="${{ inputs.repo }}"
-          RESPONSE=$(curl -s -w "
-%{http_code}" -X POST "$PORT_BASE_URL/v1/blueprints/githubRepository/entities?upsert=true&merge=true" \
-            -H "Authorization: Bearer $PORT_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "$(jq -n \
-              --arg id "$IDENTIFIER" \
-              --arg grade "${{ steps.scan.outputs.grade }}" \
-              --argjson totalScore "${{ steps.scan.outputs.totalScore }}" \
-              --argjson decisions "${{ steps.scan.outputs.decisions }}" \
-              --argjson architecture "${{ steps.scan.outputs.architecture }}" \
-              --argjson governance "${{ steps.scan.outputs.governance }}" \
-              --argjson delivery "${{ steps.scan.outputs.delivery }}" \
-              --argjson dependencies "${{ steps.scan.outputs.dependencies }}" \
-              --arg scannedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-              '{
-                identifier: $id,
-                properties: {
-                  repOpticsGrade: $grade,
-                  repOpticsScore: $totalScore,
-                  repOpticsDecisions: $decisions,
-                  repOpticsArchitecture: $architecture,
-                  repOpticsGovernance: $governance,
-                  repOpticsDelivery: $delivery,
-                  repOpticsDependencies: $dependencies,
-                  repOpticsScannedAt: $scannedAt
-                }
-              }')")
-          
-          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
-          
-          if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "201" ]; then
-            echo "⚠️ Failed to update Port entity. HTTP $HTTP_CODE"
-            echo "Response: $BODY"
-          else
-            echo "✅ Port entity updated successfully"
-            echo "$BODY" | jq .
-          fi
+        uses: port-labs/port-github-action@v1
+        with:
+          clientId: ${{ secrets.PORT_CLIENT_ID }}
+          clientSecret: ${{ secrets.PORT_CLIENT_SECRET }}
+          baseUrl: https://api.getport.io
+          operation: UPSERT
+          identifier: ${{ inputs.repo }}
+          blueprint: githubRepository
+          properties: |
+            {
+              "repOpticsGrade": "${{ steps.scan.outputs.grade }}",
+              "repOpticsScore": ${{ steps.scan.outputs.totalScore }},
+              "repOpticsDecisions": ${{ steps.scan.outputs.decisions }},
+              "repOpticsArchitecture": ${{ steps.scan.outputs.architecture }},
+              "repOpticsGovernance": ${{ steps.scan.outputs.governance }},
+              "repOpticsDelivery": ${{ steps.scan.outputs.delivery }},
+              "repOpticsDependencies": ${{ steps.scan.outputs.dependencies }},
+              "repOpticsScannedAt": "${{ github.event.repository.updated_at }}"
+            }
 
-      - name: Report action success to Port
+      - name: Report to Port - Success
         if: success()
-        env:
-          PORT_TOKEN: ${{ steps.port_auth.outputs.token }}
-        run: |
-          echo "📡 Updating Port action status to SUCCESS..."
-          RESPONSE=$(curl -s -w "
-%{http_code}" -X PATCH "$PORT_BASE_URL/v1/actions/runs/${{ inputs.port_run_id }}" \
-            -H "Authorization: Bearer $PORT_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "{\"status\": \"SUCCESS\", \"message\": {\"run_status\": \"Scan complete! ${{ inputs.owner }}/${{ inputs.repo }} scored ${{ steps.scan.outputs.grade }} (${{ steps.scan.outputs.totalScore }}/100)\"}}")
-          
-          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
-          
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "❌ Failed to update Port status to SUCCESS. HTTP $HTTP_CODE"
-            echo "Response: $BODY"
-            exit 1
-          else
-            echo "✅ Port status updated to SUCCESS"
-          fi
+        uses: port-labs/port-github-action@v1
+        with:
+          clientId: ${{ secrets.PORT_CLIENT_ID }}
+          clientSecret: ${{ secrets.PORT_CLIENT_SECRET }}
+          baseUrl: https://api.getport.io
+          operation: PATCH_RUN
+          runId: ${{ inputs.port_run_id }}
+          status: SUCCESS
+          logMessage: "✅ Scan complete! ${{ inputs.owner }}/${{ inputs.repo }} scored ${{ steps.scan.outputs.grade }} (${{ steps.scan.outputs.totalScore }}/100)"
 
-      - name: Report action failure to Port
+      - name: Report to Port - Failure
         if: failure()
-        env:
-          PORT_TOKEN: ${{ steps.port_auth.outputs.token }}
-        run: |
-          echo "📡 Updating Port action status to FAILURE..."
-          RESPONSE=$(curl -s -w "
-%{http_code}" -X PATCH "$PORT_BASE_URL/v1/actions/runs/${{ inputs.port_run_id }}" \
-            -H "Authorization: Bearer $PORT_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d '{"status": "FAILURE", "message": {"run_status": "Scan failed. Check workflow logs."}}')
-          
-          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
-          
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "❌ Failed to update Port status to FAILURE. HTTP $HTTP_CODE"
-            echo "Response: $BODY"
-          else
-            echo "✅ Port status updated to FAILURE"
-          fi
+        uses: port-labs/port-github-action@v1
+        with:
+          clientId: ${{ secrets.PORT_CLIENT_ID }}
+          clientSecret: ${{ secrets.PORT_CLIENT_SECRET }}
+          baseUrl: https://api.getport.io
+          operation: PATCH_RUN
+          runId: ${{ inputs.port_run_id }}
+          status: FAILURE
+          logMessage: "❌ Scan failed. Check workflow logs for details."
