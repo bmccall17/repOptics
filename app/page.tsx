@@ -89,12 +89,20 @@ export default function Home() {
             </div>
         </div>
 
-        <Button 
-            variant="outline" 
+        <Button
+            variant="outline"
             className="w-full border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-900"
             onClick={() => router.push("/generate")}
         >
             Generate New Project Starter
+        </Button>
+
+        <Button
+            variant="outline"
+            className="w-full border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-900"
+            onClick={() => router.push("/port-compare")}
+        >
+            repOptics vs Port.io Comparison
         </Button>
       </div>
     </main>

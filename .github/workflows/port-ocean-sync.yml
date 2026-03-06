@@ -1,0 +1,22 @@
+name: Port.io Ocean Sync
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * *" # Daily at 6am UTC
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync GitHub repos to Port.io
+        uses: port-labs/ocean-sail@v1
+        with:
+          type: github
+          port_client_id: ${{ secrets.PORT_CLIENT_ID }}
+          port_client_secret: ${{ secrets.PORT_CLIENT_SECRET }}
+          config: |
+            {
+              "token": "${{ secrets.GH_PAT }}",
+              "organization": "bmccall17"
+            }
