@@ -3,7 +3,6 @@
 // Requires GITHUB_TOKEN env var
 
 // Redirect console.log to stderr so stdout is clean JSON
-const origLog = console.log;
 console.log = (...args: unknown[]) => console.error(...args);
 
 import { scanRepo } from "../lib/scanner.ts";

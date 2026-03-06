@@ -118,7 +118,7 @@ export default async function PortComparePage() {
             repOptics vs Port.io
           </h1>
           <p className="max-w-2xl text-zinc-400">
-            Same repos, two lenses. repOptics scans deep into a single repo's
+            Same repos, two lenses. repOptics scans deep into a single repo&apos;s
             hygiene. Port.io catalogs services across an org with scorecards,
             relations, and self-service actions. This page shows both side by
             side.
