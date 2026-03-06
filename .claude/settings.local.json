@@ -19,7 +19,9 @@
       "Bash(kill 970911:*)",
       "Bash(# Test if GitHub API is reachable and working\ncurl -s -w \"\\\\nHTTP %{http_code}\" \"https://api.github.com/repos/bmccall17/repOptics\" | python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'Repo: {d.get\\(\\\\\"full_name\\\\\"\\)}, Default branch: {d.get\\(\\\\\"default_branch\\\\\"\\)}'\\)\" 2>&1)",
       "mcp__Snyk__snyk_code_scan",
-      "mcp__Snyk__snyk_auth"
+      "mcp__Snyk__snyk_auth",
+      "Bash(git config:*)",
+      "Bash(git fetch:*)"
     ]
   }
 }
