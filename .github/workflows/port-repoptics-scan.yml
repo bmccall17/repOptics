@@ -21,17 +21,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Report to Port - Starting
-        uses: port-labs/port-github-action@v1
-        with:
-          clientId: ${{ secrets.PORT_CLIENT_ID }}
-          clientSecret: ${{ secrets.PORT_CLIENT_SECRET }}
-          baseUrl: https://api.getport.io
-          operation: PATCH_RUN
-          runId: ${{ inputs.port_run_id }}
-          status: IN_PROGRESS
-          logMessage: "🔍 Starting repOptics scan for ${{ inputs.owner }}/${{ inputs.repo }}..."
-
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
