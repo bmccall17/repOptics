@@ -15,6 +15,7 @@ jobs:
           type: github
           port_client_id: ${{ secrets.PORT_CLIENT_ID }}
           port_client_secret: ${{ secrets.PORT_CLIENT_SECRET }}
+          port_base_url: https://api.us.getport.io
           config: |
             {
               "token": "${{ secrets.GH_PAT }}",
