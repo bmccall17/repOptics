@@ -22,7 +22,9 @@
       "mcp__Snyk__snyk_auth",
       "Bash(git config:*)",
       "Bash(git fetch:*)",
-      "Bash(gh api:*)"
+      "Bash(gh api:*)",
+      "Bash(chmod +x:*)",
+      "Bash(bash:*)"
     ]
   }
 }
