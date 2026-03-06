@@ -19,9 +19,9 @@ export type RepoComparison = {
     grade: string | null;
   };
   port: {
-    decisionClarity: string | null;
-    governanceStandards: string | null;
-    deliveryMaturity: string | null;
+    decision_clarity: string | null;
+    governance_standards: string | null;
+    delivery_maturity: string | null;
   };
 };
 

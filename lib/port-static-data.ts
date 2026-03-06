@@ -16,14 +16,14 @@ export const STATIC_ENTITIES: PortEntity[] = [
     },
     relations: {},
     scorecards: {
-      decisionClarity: {
+      decision_clarity: {
         level: "Bronze",
         rules: [
           { identifier: "hasReadme", status: "SUCCESS" },
           { identifier: "hasAdrDirectory", status: "FAILURE" },
         ],
       },
-      governanceStandards: {
+      governance_standards: {
         level: "Silver",
         rules: [
           { identifier: "hasCodeowners", status: "FAILURE" },
@@ -31,7 +31,7 @@ export const STATIC_ENTITIES: PortEntity[] = [
           { identifier: "hasLicense", status: "SUCCESS" },
         ],
       },
-      deliveryMaturity: {
+      delivery_maturity: {
         level: "Gold",
         rules: [
           { identifier: "hasCiWorkflow", status: "SUCCESS" },
@@ -52,14 +52,14 @@ export const STATIC_ENTITIES: PortEntity[] = [
     },
     relations: {},
     scorecards: {
-      decisionClarity: {
+      decision_clarity: {
         level: "Basic",
         rules: [
           { identifier: "hasReadme", status: "SUCCESS" },
           { identifier: "hasAdrDirectory", status: "FAILURE" },
         ],
       },
-      governanceStandards: {
+      governance_standards: {
         level: "Basic",
         rules: [
           { identifier: "hasCodeowners", status: "FAILURE" },
@@ -67,7 +67,7 @@ export const STATIC_ENTITIES: PortEntity[] = [
           { identifier: "hasLicense", status: "FAILURE" },
         ],
       },
-      deliveryMaturity: {
+      delivery_maturity: {
         level: "Basic",
         rules: [
           { identifier: "hasCiWorkflow", status: "FAILURE" },
@@ -88,14 +88,14 @@ export const STATIC_ENTITIES: PortEntity[] = [
     },
     relations: {},
     scorecards: {
-      decisionClarity: {
+      decision_clarity: {
         level: "Basic",
         rules: [
           { identifier: "hasReadme", status: "SUCCESS" },
           { identifier: "hasAdrDirectory", status: "FAILURE" },
         ],
       },
-      governanceStandards: {
+      governance_standards: {
         level: "Bronze",
         rules: [
           { identifier: "hasCodeowners", status: "FAILURE" },
@@ -103,7 +103,7 @@ export const STATIC_ENTITIES: PortEntity[] = [
           { identifier: "hasLicense", status: "SUCCESS" },
         ],
       },
-      deliveryMaturity: {
+      delivery_maturity: {
         level: "Basic",
         rules: [
           { identifier: "hasCiWorkflow", status: "FAILURE" },
@@ -124,14 +124,14 @@ export const STATIC_ENTITIES: PortEntity[] = [
     },
     relations: {},
     scorecards: {
-      decisionClarity: {
+      decision_clarity: {
         level: "Basic",
         rules: [
           { identifier: "hasReadme", status: "SUCCESS" },
           { identifier: "hasAdrDirectory", status: "FAILURE" },
         ],
       },
-      governanceStandards: {
+      governance_standards: {
         level: "Basic",
         rules: [
           { identifier: "hasCodeowners", status: "FAILURE" },
@@ -139,7 +139,7 @@ export const STATIC_ENTITIES: PortEntity[] = [
           { identifier: "hasLicense", status: "FAILURE" },
         ],
       },
-      deliveryMaturity: {
+      delivery_maturity: {
         level: "Bronze",
         rules: [
           { identifier: "hasCiWorkflow", status: "SUCCESS" },
@@ -152,7 +152,7 @@ export const STATIC_ENTITIES: PortEntity[] = [
 
 export const STATIC_SCORECARDS: PortScorecard[] = [
   {
-    identifier: "decisionClarity",
+    identifier: "decision_clarity",
     title: "Decision Clarity",
     blueprint: "githubRepository",
     levels: ["Basic", "Bronze", "Silver", "Gold"],
@@ -172,7 +172,7 @@ export const STATIC_SCORECARDS: PortScorecard[] = [
     ],
   },
   {
-    identifier: "governanceStandards",
+    identifier: "governance_standards",
     title: "Governance Standards",
     blueprint: "githubRepository",
     levels: ["Basic", "Bronze", "Silver", "Gold"],
@@ -198,7 +198,7 @@ export const STATIC_SCORECARDS: PortScorecard[] = [
     ],
   },
   {
-    identifier: "deliveryMaturity",
+    identifier: "delivery_maturity",
     title: "Delivery Maturity",
     blueprint: "githubRepository",
     levels: ["Basic", "Bronze", "Silver", "Gold"],

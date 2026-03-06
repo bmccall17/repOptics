@@ -77,15 +77,15 @@ export function RepoComparisonCard({ data }: { data: RepoComparison }) {
           <ul className="space-y-1 text-sm">
             <li className="flex justify-between">
               <span className="text-zinc-400">Decision Clarity</span>
-              <LevelBadge level={data.port.decisionClarity} />
+              <LevelBadge level={data.port.decision_clarity} />
             </li>
             <li className="flex justify-between">
               <span className="text-zinc-400">Governance Standards</span>
-              <LevelBadge level={data.port.governanceStandards} />
+              <LevelBadge level={data.port.governance_standards} />
             </li>
             <li className="flex justify-between">
               <span className="text-zinc-400">Delivery Maturity</span>
-              <LevelBadge level={data.port.deliveryMaturity} />
+              <LevelBadge level={data.port.delivery_maturity} />
             </li>
           </ul>
         </div>

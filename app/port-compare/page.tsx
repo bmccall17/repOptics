@@ -23,9 +23,9 @@ function entitiesToComparisons(entities: PortEntity[]): RepoComparison[] {
       grade: null,
     },
     port: {
-      decisionClarity: e.scorecards?.decisionClarity?.level ?? null,
-      governanceStandards: e.scorecards?.governanceStandards?.level ?? null,
-      deliveryMaturity: e.scorecards?.deliveryMaturity?.level ?? null,
+      decision_clarity: e.scorecards?.decision_clarity?.level ?? null,
+      governance_standards: e.scorecards?.governance_standards?.level ?? null,
+      delivery_maturity: e.scorecards?.delivery_maturity?.level ?? null,
     },
   }));
 }
