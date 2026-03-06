@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getPortEntities } from "@/lib/port";
 import { STATIC_ENTITIES } from "@/lib/port-static-data";
 import {
@@ -6,28 +8,72 @@ import {
   type RepoComparison,
 } from "@/lib/port-comparison";
 import type { PortEntity } from "@/lib/port";
+import { scanRepo } from "@/lib/scanner";
+import { scoreRepo } from "@/lib/heuristics";
 import { RepoComparisonCard } from "@/components/compare/repo-comparison-card";
 import { FeatureMapTable } from "@/components/compare/feature-map-table";
 import Link from "next/link";
 
-function entitiesToComparisons(entities: PortEntity[]): RepoComparison[] {
-  return entities.map((e) => ({
-    repo: e.title,
-    repOptics: {
-      decisions: null,
-      architecture: null,
-      governance: null,
-      delivery: null,
-      dependencies: null,
-      overall: null,
-      grade: null,
-    },
-    port: {
-      decision_clarity: e.scorecards?.decision_clarity?.level ?? null,
-      governance_standards: e.scorecards?.governance_standards?.level ?? null,
-      delivery_maturity: e.scorecards?.delivery_maturity?.level ?? null,
-    },
-  }));
+async function scanRepoSafe(owner: string, repo: string, token?: string) {
+  try {
+    const evidence = await scanRepo(owner, repo, token);
+    return scoreRepo(evidence);
+  } catch {
+    return null;
+  }
+}
+
+async function buildComparisons(entities: PortEntity[]): Promise<RepoComparison[]> {
+  const ghToken = process.env.GH_PAT || process.env.GITHUB_TOKEN;
+
+  const results = await Promise.all(
+    entities.map(async (e) => {
+      // Entity identifier is "bmccall17_repoName" or entity URL has the info
+      const url = e.properties?.url as string | undefined;
+      let owner = "bmccall17";
+      let repoName = e.title;
+
+      if (url) {
+        const match = url.match(/github\.com\/([^/]+)\/([^/]+)/);
+        if (match) {
+          owner = match[1];
+          repoName = match[2];
+        }
+      }
+
+      const report = await scanRepoSafe(owner, repoName, ghToken);
+
+      return {
+        repo: e.title,
+        repOptics: report
+          ? {
+              decisions: report.categories.decisions.score,
+              architecture: report.categories.architecture.score,
+              governance: report.categories.governance.score,
+              delivery: report.categories.delivery.score,
+              dependencies: report.categories.dependencies.score,
+              overall: report.totalScore,
+              grade: report.grade,
+            }
+          : {
+              decisions: null,
+              architecture: null,
+              governance: null,
+              delivery: null,
+              dependencies: null,
+              overall: null,
+              grade: null,
+            },
+        port: {
+          decision_clarity: e.scorecards?.decision_clarity?.level ?? null,
+          governance_standards: e.scorecards?.governance_standards?.level ?? null,
+          delivery_maturity: e.scorecards?.delivery_maturity?.level ?? null,
+        },
+      } satisfies RepoComparison;
+    })
+  );
+
+  return results;
 }
 
 export default async function PortComparePage() {
@@ -46,7 +92,7 @@ export default async function PortComparePage() {
     }
   }
 
-  const comparisons = entitiesToComparisons(entities);
+  const comparisons = await buildComparisons(entities);
 
   return (
     <main className="min-h-screen bg-zinc-950 p-6 text-zinc-50">
