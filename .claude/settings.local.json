@@ -24,7 +24,10 @@
       "Bash(git fetch:*)",
       "Bash(gh api:*)",
       "Bash(chmod +x:*)",
-      "Bash(bash:*)"
+      "Bash(bash:*)",
+      "Bash(set:*)",
+      "WebSearch",
+      "WebFetch(domain:docs.port.io)"
     ]
   }
 }
