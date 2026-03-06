@@ -1,0 +1,123 @@
+name: "Port: Run repOptics Scan"
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: "Repository name (e.g. repOptics)"
+        required: true
+      owner:
+        description: "Repository owner (e.g. bmccall17)"
+        required: true
+        default: "bmccall17"
+      port_run_id:
+        description: "Port action run ID for callback"
+        required: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    env:
+      PORT_CLIENT_ID: ${{ secrets.PORT_CLIENT_ID }}
+      PORT_CLIENT_SECRET: ${{ secrets.PORT_CLIENT_SECRET }}
+      PORT_BASE_URL: https://api.getport.io
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Get Port access token
+        id: port_auth
+        run: |
+          TOKEN=$(curl -s -X POST "$PORT_BASE_URL/v1/auth/access_token" \
+            -H "Content-Type: application/json" \
+            -d "{\"clientId\":\"$PORT_CLIENT_ID\",\"clientSecret\":\"$PORT_CLIENT_SECRET\"}" \
+            | jq -r '.accessToken')
+          echo "::add-mask::$TOKEN"
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+
+      - name: Report action in-progress to Port
+        if: inputs.port_run_id != ''
+        env:
+          PORT_TOKEN: ${{ steps.port_auth.outputs.token }}
+        run: |
+          curl -s -X PATCH "$PORT_BASE_URL/v1/actions/runs/${{ inputs.port_run_id }}" \
+            -H "Authorization: Bearer $PORT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"status": "IN_PROGRESS", "message": {"run_status": "Scanning ${{ inputs.owner }}/${{ inputs.repo }}..."}}'
+
+      - name: Run repOptics scanner
+        id: scan
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          npx tsx scripts/scan-for-port.ts "${{ inputs.owner }}" "${{ inputs.repo }}" > /tmp/report.json
+          echo "Scan output:"
+          jq -r '.grade + " (" + (.totalScore|tostring) + "/100)"' /tmp/report.json
+
+          # Extract values for Port
+          echo "grade=$(jq -r '.grade' /tmp/report.json)" >> "$GITHUB_OUTPUT"
+          echo "totalScore=$(jq -r '.totalScore' /tmp/report.json)" >> "$GITHUB_OUTPUT"
+          echo "decisions=$(jq -r '.categories.decisions.score' /tmp/report.json)" >> "$GITHUB_OUTPUT"
+          echo "architecture=$(jq -r '.categories.architecture.score' /tmp/report.json)" >> "$GITHUB_OUTPUT"
+          echo "governance=$(jq -r '.categories.governance.score' /tmp/report.json)" >> "$GITHUB_OUTPUT"
+          echo "delivery=$(jq -r '.categories.delivery.score' /tmp/report.json)" >> "$GITHUB_OUTPUT"
+          echo "dependencies=$(jq -r '.categories.dependencies.score' /tmp/report.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Update Port entity with scan results
+        env:
+          PORT_TOKEN: ${{ steps.port_auth.outputs.token }}
+        run: |
+          IDENTIFIER="${{ inputs.owner }}_${{ inputs.repo }}"
+          curl -s -X POST "$PORT_BASE_URL/v1/blueprints/githubRepository/entities?upsert=true&merge=true" \
+            -H "Authorization: Bearer $PORT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+              --arg id "$IDENTIFIER" \
+              --arg grade "${{ steps.scan.outputs.grade }}" \
+              --argjson totalScore "${{ steps.scan.outputs.totalScore }}" \
+              --argjson decisions "${{ steps.scan.outputs.decisions }}" \
+              --argjson architecture "${{ steps.scan.outputs.architecture }}" \
+              --argjson governance "${{ steps.scan.outputs.governance }}" \
+              --argjson delivery "${{ steps.scan.outputs.delivery }}" \
+              --argjson dependencies "${{ steps.scan.outputs.dependencies }}" \
+              --arg scannedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              '{
+                identifier: $id,
+                properties: {
+                  repOpticsGrade: $grade,
+                  repOpticsScore: $totalScore,
+                  repOpticsDecisions: $decisions,
+                  repOpticsArchitecture: $architecture,
+                  repOpticsGovernance: $governance,
+                  repOpticsDelivery: $delivery,
+                  repOpticsDependencies: $dependencies,
+                  repOpticsScannedAt: $scannedAt
+                }
+              }')" | jq .
+
+      - name: Report action success to Port
+        if: inputs.port_run_id != '' && success()
+        env:
+          PORT_TOKEN: ${{ steps.port_auth.outputs.token }}
+        run: |
+          curl -s -X PATCH "$PORT_BASE_URL/v1/actions/runs/${{ inputs.port_run_id }}" \
+            -H "Authorization: Bearer $PORT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"status\": \"SUCCESS\", \"message\": {\"run_status\": \"Scan complete! ${{ inputs.owner }}/${{ inputs.repo }} scored ${{ steps.scan.outputs.grade }} (${{ steps.scan.outputs.totalScore }}/100)\"}}"
+
+      - name: Report action failure to Port
+        if: inputs.port_run_id != '' && failure()
+        env:
+          PORT_TOKEN: ${{ steps.port_auth.outputs.token }}
+        run: |
+          curl -s -X PATCH "$PORT_BASE_URL/v1/actions/runs/${{ inputs.port_run_id }}" \
+            -H "Authorization: Bearer $PORT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"status": "FAILURE", "message": {"run_status": "Scan failed. Check workflow logs."}}'
