@@ -27,6 +27,17 @@ function LevelBadge({ level }: { level: string | null }) {
   );
 }
 
+function VulnCount({ label, count, color }: { label: string; count: number | null; color: string }) {
+  return (
+    <span className="flex items-center gap-1">
+      <span className="text-zinc-500">{label}:</span>
+      <span className={`font-mono font-bold ${count && count > 0 ? color : "text-zinc-600"}`}>
+        {count ?? "--"}
+      </span>
+    </span>
+  );
+}
+
 export function RepoComparisonCard({ data }: { data: RepoComparison }) {
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-5">
@@ -87,9 +98,33 @@ export function RepoComparisonCard({ data }: { data: RepoComparison }) {
               <span className="text-zinc-400">Delivery Maturity</span>
               <LevelBadge level={data.port.delivery_maturity} />
             </li>
+            <li className="flex justify-between">
+              <span className="text-zinc-400">Security Posture</span>
+              <LevelBadge level={data.port.security_posture} />
+            </li>
           </ul>
         </div>
       </div>
+
+      {/* Snyk vulnerability summary */}
+      {data.snyk.monitored && (
+        <div className="mt-4 border-t border-zinc-800 pt-3">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">
+            Snyk Vulnerabilities
+          </p>
+          <div className="flex gap-3 text-sm">
+            <VulnCount label="Critical" count={data.snyk.critical} color="text-red-400" />
+            <VulnCount label="High" count={data.snyk.high} color="text-orange-400" />
+            <VulnCount label="Medium" count={data.snyk.medium} color="text-yellow-400" />
+            <VulnCount label="Low" count={data.snyk.low} color="text-zinc-400" />
+          </div>
+        </div>
+      )}
+      {!data.snyk.monitored && (
+        <div className="mt-4 border-t border-zinc-800 pt-3">
+          <p className="text-xs text-zinc-600">Not monitored by Snyk</p>
+        </div>
+      )}
     </div>
   );
 }

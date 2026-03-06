@@ -13,6 +13,13 @@ export const STATIC_ENTITIES: PortEntity[] = [
       url: "https://github.com/bmccall17/repOptics",
       defaultBranch: "main",
       language: "TypeScript",
+      snykVulnCritical: 0,
+      snykVulnHigh: 1,
+      snykVulnMedium: 3,
+      snykVulnLow: 5,
+      snykVulnTotal: 9,
+      snykMonitored: true,
+      snykLastTested: "2026-03-05T12:00:00Z",
     },
     relations: {},
     scorecards: {
@@ -38,6 +45,14 @@ export const STATIC_ENTITIES: PortEntity[] = [
           { identifier: "hasPrTemplate", status: "SUCCESS" },
         ],
       },
+      security_posture: {
+        level: "Silver",
+        rules: [
+          { identifier: "snykMonitored", status: "SUCCESS" },
+          { identifier: "noCriticalVulns", status: "SUCCESS" },
+          { identifier: "noHighVulns", status: "FAILURE" },
+        ],
+      },
     },
   },
   {
@@ -49,6 +64,13 @@ export const STATIC_ENTITIES: PortEntity[] = [
       url: "https://github.com/bmccall17/TarotTALKS",
       defaultBranch: "main",
       language: "JavaScript",
+      snykVulnCritical: 2,
+      snykVulnHigh: 5,
+      snykVulnMedium: 8,
+      snykVulnLow: 12,
+      snykVulnTotal: 27,
+      snykMonitored: true,
+      snykLastTested: "2026-03-04T10:30:00Z",
     },
     relations: {},
     scorecards: {
@@ -74,6 +96,14 @@ export const STATIC_ENTITIES: PortEntity[] = [
           { identifier: "hasPrTemplate", status: "FAILURE" },
         ],
       },
+      security_posture: {
+        level: "Basic",
+        rules: [
+          { identifier: "snykMonitored", status: "SUCCESS" },
+          { identifier: "noCriticalVulns", status: "FAILURE" },
+          { identifier: "noHighVulns", status: "FAILURE" },
+        ],
+      },
     },
   },
   {
@@ -85,6 +115,7 @@ export const STATIC_ENTITIES: PortEntity[] = [
       url: "https://github.com/bmccall17/morethanone",
       defaultBranch: "main",
       language: "TypeScript",
+      snykMonitored: false,
     },
     relations: {},
     scorecards: {
@@ -110,6 +141,14 @@ export const STATIC_ENTITIES: PortEntity[] = [
           { identifier: "hasPrTemplate", status: "FAILURE" },
         ],
       },
+      security_posture: {
+        level: "Basic",
+        rules: [
+          { identifier: "snykMonitored", status: "FAILURE" },
+          { identifier: "noCriticalVulns", status: "FAILURE" },
+          { identifier: "noHighVulns", status: "FAILURE" },
+        ],
+      },
     },
   },
   {
@@ -121,6 +160,13 @@ export const STATIC_ENTITIES: PortEntity[] = [
       url: "https://github.com/bmccall17/fd_demo",
       defaultBranch: "main",
       language: "Python",
+      snykVulnCritical: 0,
+      snykVulnHigh: 0,
+      snykVulnMedium: 2,
+      snykVulnLow: 1,
+      snykVulnTotal: 3,
+      snykMonitored: true,
+      snykLastTested: "2026-03-05T08:15:00Z",
     },
     relations: {},
     scorecards: {
@@ -144,6 +190,14 @@ export const STATIC_ENTITIES: PortEntity[] = [
         rules: [
           { identifier: "hasCiWorkflow", status: "SUCCESS" },
           { identifier: "hasPrTemplate", status: "FAILURE" },
+        ],
+      },
+      security_posture: {
+        level: "Gold",
+        rules: [
+          { identifier: "snykMonitored", status: "SUCCESS" },
+          { identifier: "noCriticalVulns", status: "SUCCESS" },
+          { identifier: "noHighVulns", status: "SUCCESS" },
         ],
       },
     },
@@ -214,6 +268,32 @@ export const STATIC_SCORECARDS: PortScorecard[] = [
         title: "Has PR Template",
         level: "Gold",
         query: { combinator: "and", conditions: [] },
+      },
+    ],
+  },
+  {
+    identifier: "security_posture",
+    title: "Security Posture",
+    blueprint: "githubRepository",
+    levels: ["Basic", "Bronze", "Silver", "Gold"],
+    rules: [
+      {
+        identifier: "snykMonitored",
+        title: "Monitored by Snyk",
+        level: "Bronze",
+        query: { combinator: "and", conditions: [{ property: "snykMonitored", operator: "=", value: true }] },
+      },
+      {
+        identifier: "noCriticalVulns",
+        title: "No Critical Vulnerabilities",
+        level: "Silver",
+        query: { combinator: "and", conditions: [{ property: "snykVulnCritical", operator: "=", value: 0 }] },
+      },
+      {
+        identifier: "noHighVulns",
+        title: "No High Vulnerabilities",
+        level: "Gold",
+        query: { combinator: "and", conditions: [{ property: "snykVulnHigh", operator: "=", value: 0 }] },
       },
     ],
   },

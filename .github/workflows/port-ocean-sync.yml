@@ -12,6 +12,8 @@ jobs:
       PORT_CLIENT_ID: ${{ secrets.PORT_CLIENT_ID }}
       PORT_CLIENT_SECRET: ${{ secrets.PORT_CLIENT_SECRET }}
       GH_PAT: ${{ secrets.GH_PAT }}
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      SNYK_ORG_ID: ${{ secrets.SNYK_ORG_ID }}
       PORT_BASE_URL: https://api.getport.io
     steps:
       - name: Get Port access token
@@ -44,7 +46,14 @@ jobs:
                   "openIssues": { "type": "number", "title": "Open Issues" },
                   "stars": { "type": "number", "title": "Stars" },
                   "description": { "type": "string", "title": "Description" },
-                  "lastPush": { "type": "string", "format": "date-time", "title": "Last Push" }
+                  "lastPush": { "type": "string", "format": "date-time", "title": "Last Push" },
+                "snykVulnCritical": { "type": "number", "title": "Snyk Critical Vulns" },
+                "snykVulnHigh": { "type": "number", "title": "Snyk High Vulns" },
+                "snykVulnMedium": { "type": "number", "title": "Snyk Medium Vulns" },
+                "snykVulnLow": { "type": "number", "title": "Snyk Low Vulns" },
+                "snykVulnTotal": { "type": "number", "title": "Snyk Total Vulns" },
+                "snykLastTested": { "type": "string", "format": "date-time", "title": "Snyk Last Scan" },
+                "snykMonitored": { "type": "boolean", "title": "Snyk Monitored" }
                 }
               }
             }' || true
@@ -106,4 +115,109 @@ jobs:
                 }')" | jq -r '.ok // .message'
           done
 
-          echo "Sync complete!"
+          echo "GitHub repo sync complete!"
+
+      - name: Enrich entities with Snyk vulnerability data
+        if: env.SNYK_TOKEN != '' && env.SNYK_ORG_ID != ''
+        env:
+          PORT_TOKEN: ${{ steps.port_auth.outputs.token }}
+        run: |
+          echo "Fetching Snyk projects..."
+          SNYK_PROJECTS=$(curl -s \
+            -H "Authorization: token $SNYK_TOKEN" \
+            -H "Content-Type: application/vnd.api+json" \
+            "https://api.snyk.io/rest/orgs/$SNYK_ORG_ID/projects?version=2024-10-15&limit=100")
+
+          echo "$SNYK_PROJECTS" | jq -c '.data[]' | while read -r project; do
+            PROJECT_NAME=$(echo "$project" | jq -r '.attributes.name')
+            # Snyk project names: "org/repo:path/to/manifest"
+            REPO_FULL=$(echo "$PROJECT_NAME" | cut -d':' -f1)
+            IDENTIFIER=$(echo "$REPO_FULL" | tr '/' '_')
+
+            CRITICAL=$(echo "$project" | jq -r '.attributes.issue_counts_by_severity.critical // 0')
+            HIGH=$(echo "$project" | jq -r '.attributes.issue_counts_by_severity.high // 0')
+            MEDIUM=$(echo "$project" | jq -r '.attributes.issue_counts_by_severity.medium // 0')
+            LOW=$(echo "$project" | jq -r '.attributes.issue_counts_by_severity.low // 0')
+            TOTAL=$((CRITICAL + HIGH + MEDIUM + LOW))
+            LAST_TESTED=$(echo "$project" | jq -r '.attributes.last_tested_date // empty')
+
+            echo "Enriching $REPO_FULL with Snyk data (C:$CRITICAL H:$HIGH M:$MEDIUM L:$LOW)..."
+            curl -s -X POST "$PORT_BASE_URL/v1/blueprints/githubRepository/entities?upsert=true&merge=true" \
+              -H "Authorization: Bearer $PORT_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "$(jq -n \
+                --arg id "$IDENTIFIER" \
+                --argjson critical "$CRITICAL" \
+                --argjson high "$HIGH" \
+                --argjson medium "$MEDIUM" \
+                --argjson low "$LOW" \
+                --argjson total "$TOTAL" \
+                --arg lastTested "${LAST_TESTED:-null}" \
+                '{
+                  identifier: $id,
+                  properties: {
+                    snykVulnCritical: $critical,
+                    snykVulnHigh: $high,
+                    snykVulnMedium: $medium,
+                    snykVulnLow: $low,
+                    snykVulnTotal: $total,
+                    snykLastTested: (if $lastTested == "null" then null else $lastTested end),
+                    snykMonitored: true
+                  }
+                }')" | jq -r '.ok // .message'
+          done
+          echo "Snyk enrichment complete!"
+
+      - name: Create security posture scorecard
+        env:
+          PORT_TOKEN: ${{ steps.port_auth.outputs.token }}
+        run: |
+          curl -s -X POST "$PORT_BASE_URL/v1/blueprints/githubRepository/scorecards" \
+            -H "Authorization: Bearer $PORT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "identifier": "security_posture",
+              "title": "Security Posture",
+              "levels": [
+                { "color": "red", "title": "Basic" },
+                { "color": "orange", "title": "Bronze" },
+                { "color": "yellow", "title": "Silver" },
+                { "color": "green", "title": "Gold" }
+              ],
+              "rules": [
+                {
+                  "identifier": "snykMonitored",
+                  "title": "Monitored by Snyk",
+                  "level": "Bronze",
+                  "query": {
+                    "combinator": "and",
+                    "conditions": [
+                      { "property": "snykMonitored", "operator": "=", "value": true }
+                    ]
+                  }
+                },
+                {
+                  "identifier": "noCriticalVulns",
+                  "title": "No Critical Vulnerabilities",
+                  "level": "Silver",
+                  "query": {
+                    "combinator": "and",
+                    "conditions": [
+                      { "property": "snykVulnCritical", "operator": "=", "value": 0 }
+                    ]
+                  }
+                },
+                {
+                  "identifier": "noHighVulns",
+                  "title": "No High Vulnerabilities",
+                  "level": "Gold",
+                  "query": {
+                    "combinator": "and",
+                    "conditions": [
+                      { "property": "snykVulnHigh", "operator": "=", "value": 0 }
+                    ]
+                  }
+                }
+              ]
+            }' || true
+          echo "Security scorecard created/updated!"

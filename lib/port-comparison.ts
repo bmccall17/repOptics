@@ -22,6 +22,15 @@ export type RepoComparison = {
     decision_clarity: string | null;
     governance_standards: string | null;
     delivery_maturity: string | null;
+    security_posture: string | null;
+  };
+  snyk: {
+    critical: number | null;
+    high: number | null;
+    medium: number | null;
+    low: number | null;
+    total: number | null;
+    monitored: boolean;
   };
 };
 
@@ -41,8 +50,14 @@ export const FEATURE_MAP: FeatureRow[] = [
   {
     capability: "Dependency Audit",
     repOptics: "Fetches npm registry, compares versions, flags major/minor/vuln",
-    port: "Not built-in (requires custom integration or Snyk webhook)",
-    verdict: "repOptics: unique depth",
+    port: "Snyk integration: vuln counts by severity pushed to catalog properties",
+    verdict: "Complementary: repOptics for version drift, Snyk+Port for security enforcement",
+  },
+  {
+    capability: "Security Scanning",
+    repOptics: "Basic dependency version checks",
+    port: "Snyk-powered Security Posture scorecard: Bronze (monitored) > Silver (no critical) > Gold (no high)",
+    verdict: "Port+Snyk: enforced security gates across the org",
   },
   {
     capability: "Scorecard Enforcement",

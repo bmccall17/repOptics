@@ -68,6 +68,15 @@ async function buildComparisons(entities: PortEntity[]): Promise<RepoComparison[
           decision_clarity: e.scorecards?.decision_clarity?.level ?? null,
           governance_standards: e.scorecards?.governance_standards?.level ?? null,
           delivery_maturity: e.scorecards?.delivery_maturity?.level ?? null,
+          security_posture: e.scorecards?.security_posture?.level ?? null,
+        },
+        snyk: {
+          critical: (e.properties?.snykVulnCritical as number) ?? null,
+          high: (e.properties?.snykVulnHigh as number) ?? null,
+          medium: (e.properties?.snykVulnMedium as number) ?? null,
+          low: (e.properties?.snykVulnLow as number) ?? null,
+          total: (e.properties?.snykVulnTotal as number) ?? null,
+          monitored: (e.properties?.snykMonitored as boolean) ?? false,
         },
       } satisfies RepoComparison;
     })
