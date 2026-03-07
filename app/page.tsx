@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Github, Search } from "lucide-react";
+import { Github, Search, ExternalLink } from "lucide-react";
+import Link from "next/link";
 
 export default function Home() {
   const [repo, setRepo] = useState("");
@@ -97,13 +98,29 @@ export default function Home() {
             Generate New Project Starter
         </Button>
 
-        <Button
-            variant="outline"
-            className="w-full border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-900"
-            onClick={() => router.push("/port-compare")}
+        <Link href="/port-compare" className="w-full">
+          <Button
+              variant="outline"
+              className="w-full border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-900"
+          >
+              repOptics vs Port.io Comparison
+          </Button>
+        </Link>
+
+        <a
+          href="https://app.getport.io"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full"
         >
-            repOptics vs Port.io Comparison
-        </Button>
+          <Button
+              variant="outline"
+              className="w-full border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-900 gap-2"
+          >
+              View Port.io Dashboard
+              <ExternalLink className="h-4 w-4" />
+          </Button>
+        </a>
       </div>
     </main>
   );
