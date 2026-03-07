@@ -90,36 +90,28 @@ export default function Home() {
             </div>
         </div>
 
-        <Button
-            variant="outline"
-            className="w-full border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-900"
-            onClick={() => router.push("/generate")}
+        <Link
+          href="/generate"
+          className="inline-flex w-full items-center justify-center rounded-md border border-zinc-800 bg-transparent px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white"
         >
-            Generate New Project Starter
-        </Button>
+          Generate New Project Starter
+        </Link>
 
-        <Link href="/port-compare" className="w-full">
-          <Button
-              variant="outline"
-              className="w-full border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-900"
-          >
-              repOptics vs Port.io Comparison
-          </Button>
+        <Link
+          href="/port-compare"
+          className="inline-flex w-full items-center justify-center rounded-md border border-zinc-800 bg-transparent px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white"
+        >
+          repOptics vs Port.io Comparison
         </Link>
 
         <a
           href="https://app.getport.io"
           target="_blank"
           rel="noopener noreferrer"
-          className="w-full"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-zinc-800 bg-transparent px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white"
         >
-          <Button
-              variant="outline"
-              className="w-full border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-900 gap-2"
-          >
-              View Port.io Dashboard
-              <ExternalLink className="h-4 w-4" />
-          </Button>
+          View Port.io Dashboard
+          <ExternalLink className="h-4 w-4" />
         </a>
       </div>
     </main>
