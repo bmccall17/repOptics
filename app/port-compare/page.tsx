@@ -28,10 +28,17 @@ async function buildComparisons(entities: PortEntity[]): Promise<RepoComparison[
 
   const results = await Promise.all(
     entities.map(async (e) => {
-      // Entity identifier is "bmccall17_repoName" or entity URL has the info
+      // Entity identifier is "owner/repoName" (e.g. "bmccall17/repOptics")
       const url = e.properties?.url as string | undefined;
       let owner = "bmccall17";
       let repoName = e.title;
+
+      // Extract owner/repo from identifier if in owner/repo format
+      if (e.identifier.includes("/")) {
+        const parts = e.identifier.split("/");
+        owner = parts[0];
+        repoName = parts.slice(1).join("/");
+      }
 
       if (url) {
         const match = url.match(/github\.com\/([^/]+)\/([^/]+)/);
@@ -125,8 +132,8 @@ export default async function PortComparePage() {
           </p>
           <p className="text-xs text-zinc-600">
             {isLive
-              ? "Connected to Port.io — showing live data"
-              : "Using static data — add PORT_CLIENT_ID and PORT_CLIENT_SECRET to .env.local for live data"}
+              ? `Connected to Port.io — showing live data for ${entities.length} repos`
+              : `Using static data (${entities.length} repos) — add PORT_CLIENT_ID and PORT_CLIENT_SECRET to .env.local for live data`}
           </p>
         </div>
 

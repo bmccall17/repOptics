@@ -56,7 +56,18 @@ export async function getPortEntities(
   );
   if (!res.ok) throw new Error(`Port entities fetch failed: ${res.status}`);
   const data = await res.json();
-  return data.entities ?? [];
+  const entities: PortEntity[] = data.entities ?? [];
+
+  // Deduplicate: prefer "owner/repo" format over short-name identifiers.
+  // If both "repoName" and "owner/repoName" exist, keep only "owner/repoName".
+  const byTitle = new Map<string, PortEntity>();
+  for (const e of entities) {
+    const existing = byTitle.get(e.title);
+    if (!existing || e.identifier.includes("/")) {
+      byTitle.set(e.title, e);
+    }
+  }
+  return Array.from(byTitle.values());
 }
 
 export async function getPortScorecards(
