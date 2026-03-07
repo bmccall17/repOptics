@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Github, Search, ExternalLink } from "lucide-react";
+import { Github, Search, ExternalLink, Mountain } from "lucide-react";
 import Link from "next/link";
 
 export default function Home() {
@@ -15,7 +15,7 @@ export default function Home() {
   const handleScan = (e: React.FormEvent) => {
     e.preventDefault();
     if (!repo) return;
-    
+
     // Simple validation
     if (!repo.includes("/")) {
       alert("Please enter a valid owner/repo (e.g., facebook/react)");
@@ -82,12 +82,12 @@ export default function Home() {
         </div>
 
         <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-zinc-800" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-zinc-950 px-2 text-zinc-500">Or start fresh</span>
-            </div>
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t border-zinc-800" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-zinc-950 px-2 text-zinc-500">Or start fresh</span>
+          </div>
         </div>
 
         <Link
@@ -95,6 +95,14 @@ export default function Home() {
           className="inline-flex w-full items-center justify-center rounded-md border border-zinc-800 bg-transparent px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white"
         >
           Generate New Project Starter
+        </Link>
+
+        <Link
+          href="/playbook"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-zinc-800 bg-transparent px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white"
+        >
+          <Mountain className="h-4 w-4" />
+          Hackathon Playbook
         </Link>
 
         <Link
