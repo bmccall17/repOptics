@@ -3,6 +3,11 @@
 # Creates a dashboard page with PR analytics widgets
 # Uses githubPullRequest blueprint from the github-ocean integration
 # Requires: PORT_CLIENT_ID, PORT_CLIENT_SECRET env vars
+#
+# NOTE: Number chart widgets (entities-number-chart) cannot be created via
+# the Port REST API — they require an agentIdentifier field that conflicts
+# with the widget schema. After running this script, you can add number
+# widgets manually in the Port UI (+ Widget > Number Chart).
 
 set -euo pipefail
 
@@ -39,16 +44,12 @@ if [ "$BP_CHECK" != "200" ]; then
   echo "WARNING: githubPullRequest blueprint not found (HTTP $BP_CHECK)."
   echo "Make sure the github-ocean integration has run at least once (main.yml workflow)."
   echo "Continuing anyway — dashboard will populate once PR data syncs."
+else
+  echo "Blueprint found. Properties:"
+  curl -s "$PORT_BASE_URL/v1/blueprints/githubPullRequest" \
+    -H "Authorization: Bearer $TOKEN" \
+    | jq -r '.blueprint.schema.properties // {} | keys[]' 2>/dev/null
 fi
-
-# ============================================================
-# Discover actual blueprint properties (for debugging)
-# ============================================================
-echo ""
-echo "=== githubPullRequest blueprint properties ==="
-curl -s "$PORT_BASE_URL/v1/blueprints/githubPullRequest" \
-  -H "Authorization: Bearer $TOKEN" \
-  | jq -r '.blueprint.schema.properties // {} | keys[]' 2>/dev/null || echo "(blueprint not found yet)"
 
 # ============================================================
 # Create PR Metrics Dashboard Page
@@ -74,68 +75,8 @@ curl -s -X POST "$PORT_BASE_URL/v1/pages" \
         "type": "markdown",
         "title": "Pull Request Analytics",
         "description": "",
-        "markdown": "# Pull Request Metrics\nTrack PR velocity, open counts, and merge patterns across all repositories.\n\nData sourced from the **github-ocean** integration.",
+        "markdown": "# Pull Request Metrics\nTrack PR velocity, open counts, and merge patterns across all repositories.\n\nData sourced from the **github-ocean** integration.\n\n> **Tip:** Add Number Chart widgets via the Port UI for open/merged/closed PR counts.",
         "icon": "Git"
-      },
-      {
-        "id": "open-pr-count",
-        "type": "entities-number-chart",
-        "title": "Open PRs",
-        "icon": "GitPullRequest",
-        "blueprint": "githubPullRequest",
-        "calculationBy": "entities",
-        "func": "count",
-        "dataset": {
-          "combinator": "and",
-          "rules": [
-            {
-              "property": "status",
-              "operator": "=",
-              "value": "open"
-            }
-          ]
-        },
-        "description": "Total open pull requests across all repos"
-      },
-      {
-        "id": "merged-pr-count",
-        "type": "entities-number-chart",
-        "title": "Merged PRs (Total)",
-        "icon": "GitMerge",
-        "blueprint": "githubPullRequest",
-        "calculationBy": "entities",
-        "func": "count",
-        "dataset": {
-          "combinator": "and",
-          "rules": [
-            {
-              "property": "status",
-              "operator": "=",
-              "value": "merged"
-            }
-          ]
-        },
-        "description": "Total merged pull requests"
-      },
-      {
-        "id": "closed-pr-count",
-        "type": "entities-number-chart",
-        "title": "Closed PRs (Unmerged)",
-        "icon": "Close",
-        "blueprint": "githubPullRequest",
-        "calculationBy": "entities",
-        "func": "count",
-        "dataset": {
-          "combinator": "and",
-          "rules": [
-            {
-              "property": "status",
-              "operator": "=",
-              "value": "closed"
-            }
-          ]
-        },
-        "description": "Pull requests closed without merging"
       },
       {
         "id": "pr-status-pie",
@@ -179,9 +120,9 @@ curl -s -X POST "$PORT_BASE_URL/v1/pages" \
         }
       },
       {
-        "id": "recent-merged-table",
+        "id": "merged-prs-table",
         "type": "table-entities-explorer",
-        "title": "Recently Merged PRs",
+        "title": "Merged Pull Requests",
         "icon": "GitMerge",
         "blueprint": "githubPullRequest",
         "dataset": {
@@ -194,6 +135,23 @@ curl -s -X POST "$PORT_BASE_URL/v1/pages" \
             }
           ]
         }
+      },
+      {
+        "id": "closed-prs-table",
+        "type": "table-entities-explorer",
+        "title": "Closed PRs (Unmerged)",
+        "icon": "Close",
+        "blueprint": "githubPullRequest",
+        "dataset": {
+          "combinator": "and",
+          "rules": [
+            {
+              "property": "status",
+              "operator": "=",
+              "value": "closed"
+            }
+          ]
+        }
       }
     ]
   }' | jq .
@@ -201,3 +159,8 @@ curl -s -X POST "$PORT_BASE_URL/v1/pages" \
 echo ""
 echo "=== PR Metrics Dashboard created! ==="
 echo "View it in your Port portal under the 'PR Metrics' page."
+echo ""
+echo "Optional: In the Port UI, add Number Chart widgets for:"
+echo "  - Open PR count (blueprint: githubPullRequest, filter: status=open)"
+echo "  - Merged PR count (blueprint: githubPullRequest, filter: status=merged)"
+echo "  - Avg Lead Time (blueprint: githubPullRequest, property: leadTimeHours, func: average)"

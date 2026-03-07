@@ -27,7 +27,8 @@
       "Bash(bash:*)",
       "Bash(set:*)",
       "WebSearch",
-      "WebFetch(domain:docs.port.io)"
+      "WebFetch(domain:docs.port.io)",
+      "WebFetch(domain:api.port.io)"
     ]
   }
 }

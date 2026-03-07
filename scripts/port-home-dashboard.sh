@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 # Port.io Home Overview Dashboard
 # Creates a 4-row dashboard page with the layout from HomePageDashboardIdeas.md:
-#   Row 1: High-Level Overview (service type pie, lifecycle pie, total services count)
-#   Row 2: Security & Quality Metrics (critical/high vuln counts, fixes, scorecard pie)
-#   Row 3: Repository Activity (recently updated repos table, language pie)
+#   Row 1: High-Level Overview (service type pie, lifecycle pie)
+#   Row 2: Security & Quality Metrics (scorecard pies, repOptics grades, vuln table)
+#   Row 3: Repository Activity (repos table, language pie)
 #   Row 4: Quick Actions (markdown with links)
 # Requires: PORT_CLIENT_ID, PORT_CLIENT_SECRET env vars
+#
+# NOTE: Number chart widgets (entities-number-chart) cannot be created via
+# the Port REST API. After running this script, you can add number widgets
+# manually in the Port UI (+ Widget > Number Chart).
 
 set -euo pipefail
 
@@ -53,38 +57,10 @@ curl -s -X POST "$PORT_BASE_URL/v1/pages" \
         "type": "markdown",
         "title": "",
         "description": "",
-        "markdown": "# Portfolio Overview\nHigh-level view of all services, repositories, and their health across the catalog.",
+        "markdown": "# Portfolio Overview\nHigh-level view of all services, repositories, and their health across the catalog.\n\n> **Tip:** Add Number Chart widgets via the Port UI for total service/repo counts and vulnerability sums.",
         "icon": "Home"
       },
 
-      {
-        "id": "total-services-count",
-        "type": "entities-number-chart",
-        "title": "Total Services",
-        "icon": "Microservice",
-        "blueprint": "service",
-        "calculationBy": "entities",
-        "func": "count",
-        "dataset": {
-          "combinator": "and",
-          "rules": []
-        },
-        "description": "All services in the catalog"
-      },
-      {
-        "id": "total-repos-count",
-        "type": "entities-number-chart",
-        "title": "Total Repositories",
-        "icon": "Github",
-        "blueprint": "githubRepository",
-        "calculationBy": "entities",
-        "func": "count",
-        "dataset": {
-          "combinator": "and",
-          "rules": []
-        },
-        "description": "All GitHub repositories tracked"
-      },
       {
         "id": "services-by-type-pie",
         "type": "entities-pie-chart",
@@ -95,8 +71,7 @@ curl -s -X POST "$PORT_BASE_URL/v1/pages" \
           "combinator": "and",
           "rules": []
         },
-        "property": "type",
-        "description": "Distribution: web-app, game, tool, platform, etc."
+        "property": "type"
       },
       {
         "id": "services-by-lifecycle-pie",
@@ -108,8 +83,19 @@ curl -s -X POST "$PORT_BASE_URL/v1/pages" \
           "combinator": "and",
           "rules": []
         },
-        "property": "lifecycle",
-        "description": "Active vs Maintained vs Deprecated vs Archived"
+        "property": "lifecycle"
+      },
+      {
+        "id": "services-by-tier-pie",
+        "type": "entities-pie-chart",
+        "title": "Services by Tier",
+        "icon": "Star",
+        "blueprint": "service",
+        "dataset": {
+          "combinator": "and",
+          "rules": []
+        },
+        "property": "tier"
       },
 
       {
@@ -122,51 +108,6 @@ curl -s -X POST "$PORT_BASE_URL/v1/pages" \
       },
 
       {
-        "id": "critical-vulns-count",
-        "type": "entities-number-chart",
-        "title": "Critical Vulnerabilities",
-        "icon": "Alert",
-        "blueprint": "githubRepository",
-        "calculationBy": "property",
-        "property": "snykVulnCritical",
-        "func": "sum",
-        "dataset": {
-          "combinator": "and",
-          "rules": []
-        },
-        "description": "Sum of critical Snyk vulnerabilities across all repos"
-      },
-      {
-        "id": "high-vulns-count",
-        "type": "entities-number-chart",
-        "title": "High Vulnerabilities",
-        "icon": "Alert",
-        "blueprint": "githubRepository",
-        "calculationBy": "property",
-        "property": "snykVulnHigh",
-        "func": "sum",
-        "dataset": {
-          "combinator": "and",
-          "rules": []
-        },
-        "description": "Sum of high Snyk vulnerabilities across all repos"
-      },
-      {
-        "id": "total-vulns-count",
-        "type": "entities-number-chart",
-        "title": "Total Vulnerabilities",
-        "icon": "DefaultBlueprint",
-        "blueprint": "githubRepository",
-        "calculationBy": "property",
-        "property": "snykVulnTotal",
-        "func": "sum",
-        "dataset": {
-          "combinator": "and",
-          "rules": []
-        },
-        "description": "Sum of all Snyk vulnerabilities"
-      },
-      {
         "id": "security-scorecard-pie",
         "type": "entities-pie-chart",
         "title": "Security Posture Levels",
@@ -176,21 +117,55 @@ curl -s -X POST "$PORT_BASE_URL/v1/pages" \
           "combinator": "and",
           "rules": []
         },
-        "property": "$scorecard.security_posture.level",
-        "description": "Gold / Silver / Bronze / Basic distribution"
+        "property": "$scorecard.security_posture.level"
       },
       {
-        "id": "repoptics-grade-pie",
+        "id": "decision-clarity-pie",
         "type": "entities-pie-chart",
-        "title": "repOptics Grades",
+        "title": "Decision Clarity Levels",
         "icon": "Star",
         "blueprint": "githubRepository",
         "dataset": {
           "combinator": "and",
           "rules": []
         },
-        "property": "repOpticsGrade",
-        "description": "A / B / C / F grade distribution"
+        "property": "$scorecard.decision_clarity.level"
+      },
+      {
+        "id": "governance-pie",
+        "type": "entities-pie-chart",
+        "title": "Governance Standards Levels",
+        "icon": "Lock",
+        "blueprint": "githubRepository",
+        "dataset": {
+          "combinator": "and",
+          "rules": []
+        },
+        "property": "$scorecard.governance_standards.level"
+      },
+      {
+        "id": "delivery-maturity-pie",
+        "type": "entities-pie-chart",
+        "title": "Delivery Maturity Levels",
+        "icon": "DeployedAt",
+        "blueprint": "githubRepository",
+        "dataset": {
+          "combinator": "and",
+          "rules": []
+        },
+        "property": "$scorecard.delivery_maturity.level"
+      },
+      {
+        "id": "repoptics-grade-pie",
+        "type": "entities-pie-chart",
+        "title": "repOptics Grades",
+        "icon": "Microservice",
+        "blueprint": "githubRepository",
+        "dataset": {
+          "combinator": "and",
+          "rules": []
+        },
+        "property": "repOpticsGrade"
       },
 
       {
@@ -198,7 +173,7 @@ curl -s -X POST "$PORT_BASE_URL/v1/pages" \
         "type": "markdown",
         "title": "",
         "description": "",
-        "markdown": "---\n## Repository Activity\nRecently updated repos and tech stack distribution.",
+        "markdown": "---\n## Repository Activity\nAll repositories and tech stack distribution.",
         "icon": "Github"
       },
 
@@ -212,8 +187,7 @@ curl -s -X POST "$PORT_BASE_URL/v1/pages" \
           "combinator": "and",
           "rules": []
         },
-        "property": "language",
-        "description": "Programming language distribution"
+        "property": "language"
       },
       {
         "id": "active-services-table",
@@ -258,6 +232,13 @@ curl -s -X POST "$PORT_BASE_URL/v1/pages" \
 echo ""
 echo "=== Home Overview Dashboard created! ==="
 echo "View it in your Port portal under the 'Home Overview' page."
+echo ""
+echo "Optional: In the Port UI, add Number Chart widgets for:"
+echo "  - Total Services (blueprint: service, count)"
+echo "  - Total Repositories (blueprint: githubRepository, count)"
+echo "  - Critical Vulnerabilities (blueprint: githubRepository, property: snykVulnCritical, sum)"
+echo "  - High Vulnerabilities (blueprint: githubRepository, property: snykVulnHigh, sum)"
+echo "  - Total Vulnerabilities (blueprint: githubRepository, property: snykVulnTotal, sum)"
 echo ""
 echo "Tip: In Port UI, you can set this as your default home page"
 echo "by going to Settings > Home Page and selecting 'Home Overview'."
